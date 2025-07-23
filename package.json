@@ -1,0 +1,18 @@
+{
+	"name": "keetanet-examples",
+	"version": "0.1.0",
+	"scripts": {
+		"example1": "tsx example1.ts",
+		"example2": "tsx example2.ts"
+	},
+	"author": "Keeta Token Genesis LLC",
+	"license": "MIT",
+	"description": "Examples for using the Keetanet client library",
+	"dependencies": {
+		"@keetanetwork/keetanet-client": "0.10.5",
+		"tsx": "4.20.3"
+	},
+	"devDependencies": {
+		"@types/node": "24.0.10"
+	}
+}
