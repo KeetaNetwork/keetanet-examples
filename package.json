@@ -2,17 +2,20 @@
 	"name": "keetanet-examples",
 	"version": "0.1.0",
 	"scripts": {
-		"example1": "tsx example1.ts",
-		"example2": "tsx example2.ts"
+		"utils/asn1-basic-validation": "tsx src/utils/asn1-basic-validation.ts",
+		"permissions/network-default-permissions": "tsx src/permissions/network-default-permissions.ts",
+		"anchor/resolver": "tsx src/anchor/resolver.ts"
 	},
 	"author": "Keeta Token Genesis LLC",
 	"license": "MIT",
-	"description": "Examples for using the Keetanet client library",
+	"type": "module",
+	"description": "Examples for using the Keetanet Anchor and Client Libraries",
 	"dependencies": {
-		"@keetanetwork/keetanet-client": "0.10.5",
+		"@keetanetwork/anchor": "0.0.11",
 		"tsx": "4.20.3"
 	},
 	"devDependencies": {
-		"@types/node": "24.0.10"
+		"@types/node": "24.0.10",
+		"typescript": "5.9.3"
 	}
 }

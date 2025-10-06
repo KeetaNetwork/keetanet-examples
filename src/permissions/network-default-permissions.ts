@@ -5,8 +5,7 @@
  */
 
 import * as KeetaNet from '@keetanetwork/keetanet-client';
-
-const DPO = KeetaNet.lib.Utils.Helper.debugPrintableObject.bind(KeetaNet.lib.Utils.Helper);
+import { DPO } from '../helper';
 
 async function main() {
 	const networkAlias = 'test';
@@ -15,6 +14,7 @@ async function main() {
 	const networkAccount = KeetaNet.lib.Account.generateNetworkAddress(config.network);
 	const networkAccountInfo = await client.getAccountInfo(networkAccount);
 
+	console.debug('Network Alias:', networkAlias);
 	console.debug('Network ID:', config.network);
 	console.debug('Network Account:', networkAccount.publicKeyString.get());
 	console.debug('Network Account Info:', DPO(networkAccountInfo));

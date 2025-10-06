@@ -1,3 +1,6 @@
+TS_FILES := $(shell find src -name '*.ts' ! -path 'src/helper.ts')
+TARGETS := $(patsubst src/%.ts,%,$(TS_FILES))
+
 all:
 	@echo 'Nothing to build, please run "make help" for available commands.'
 
@@ -6,12 +9,14 @@ help:
 	@echo 'Usage: make [target]'
 	@echo ''
 	@echo 'Targets:'
-	@for file in $(wildcard *.ts); do \
-		desc=$$(grep ' Description:' $${file} | sed 's/^.* Description: //'); \
-		printf '  %-12s - %s\n' "$$(basename "$${file}" .ts)" "$${desc}"; \
+	@for file in $(TS_FILES); do \
+		target=$${file#src/}; \
+		target=$${target%.ts}; \
+		desc=$$(grep ' Description:' "$$file" | sed 's/^.* Description: //'); \
+		printf '  %-40s - %s\n' "$$target" "$$desc"; \
 	done
 
-node_modules/.done: package.json package-lock.json
+node_modules/.done: package.json
 	rm -rf node_modules
 	npm ci
 	@touch node_modules/.done
@@ -19,7 +24,8 @@ node_modules/.done: package.json package-lock.json
 node_modules: node_modules/.done
 	@touch node_modules
 
-$(subst .ts,,$(wildcard *.ts)): node_modules
-	npm run '$@'
+.PHONY: all help node_modules $(TARGETS)
 
-.PHONY: all help example%
+# Pattern rule must be at the end to avoid catching other rules like 'Makefile' or 'help'
+$(TARGETS): %: node_modules
+	npm run '$@'
