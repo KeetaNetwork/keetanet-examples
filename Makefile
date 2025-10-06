@@ -1,5 +1,5 @@
-TS_FILES := $(shell find src -name '*.ts' ! -path 'src/helper.ts')
-TARGETS := $(patsubst src/%.ts,%,$(TS_FILES))
+TS_FILES := $(shell find src -name '*.ts' ! -path 'src/helper.ts' | sort)
+RUNNABLE := $(patsubst src/%.ts,%,$(TS_FILES))
 
 all:
 	@echo 'Nothing to build, please run "make help" for available commands.'
@@ -24,8 +24,8 @@ node_modules/.done: package.json
 node_modules: node_modules/.done
 	@touch node_modules
 
-.PHONY: all help node_modules $(TARGETS)
+$(RUNNABLE): node_modules
+	npx tsx 'src/$@'
 
-# Pattern rule must be at the end to avoid catching other rules like 'Makefile' or 'help'
-$(TARGETS): %: node_modules
-	npm run '$@'
+.PHONY: all help node_modules $(RUNNABLE)
+

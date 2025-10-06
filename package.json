@@ -1,11 +1,6 @@
 {
 	"name": "keetanet-examples",
 	"version": "0.1.0",
-	"scripts": {
-		"utils/asn1-basic-validation": "tsx src/utils/asn1-basic-validation.ts",
-		"permissions/network-default-permissions": "tsx src/permissions/network-default-permissions.ts",
-		"anchor/resolver": "tsx src/anchor/resolver.ts"
-	},
 	"author": "Keeta Token Genesis LLC",
 	"license": "MIT",
 	"type": "module",

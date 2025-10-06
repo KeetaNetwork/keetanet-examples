@@ -5,7 +5,7 @@
  */
 
 import * as KeetaNet from '@keetanetwork/keetanet-client';
-import type { ValidateASN1 } from '@keetanetwork/keetanet-client/lib/utils/asn1';
+import type { ValidateASN1 } from '@keetanetwork/keetanet-client/lib/utils/asn1.js';
 
 const schema: [
 	name: typeof KeetaNet.lib.Utils.ASN1.ValidateASN1.IsString,

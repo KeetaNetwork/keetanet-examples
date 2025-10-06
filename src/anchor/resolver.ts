@@ -5,7 +5,7 @@
  */
 
 import * as KeetaAnchor from '@keetanetwork/anchor';
-import { DPO } from '../helper.js';
+import * as util from 'util';
 
 async function main() {
     const networkAlias = 'test';
@@ -13,22 +13,19 @@ async function main() {
     const userClient = KeetaAnchor.KeetaNet.UserClient.fromNetwork(networkAlias, null);
     const networkAddress = userClient.networkAddress;
 
-    const networkInfo = await userClient.client.getAccountInfo(networkAddress);
-    const metadataBuffer = Buffer.from(networkInfo.info.metadata, 'base64');
-    const networkMetadata = KeetaAnchor.KeetaNet.lib.Utils.Helper.bufferToArrayBuffer(metadataBuffer);
-    let metadataUncompressed: ArrayBuffer;
-    try {
-        metadataUncompressed = KeetaAnchor.KeetaNet.lib.Utils.Buffer.ZlibInflate(networkMetadata);
-    } catch {
-        metadataUncompressed = networkMetadata;
-    }
-    const metadataBytes = Buffer.from(metadataUncompressed);
-	const metadataDecoded = JSON.parse(metadataBytes.toString('utf-8'));
+    const resolver = new KeetaAnchor.lib.Resolver({
+        root: networkAddress,
+        client: userClient,
+        trustedCAs: []
+    });
+
+    const metadata = await resolver.getRootMetadata();
+    const resolvedMetadata = await KeetaAnchor.lib.Resolver.Metadata.fullyResolveValuizable(metadata);
 
 	console.debug('Network Alias:', networkAlias);
 	console.debug('Network ID:', config.network);
 	console.debug('Network Account:', networkAddress.publicKeyString.get());
-	console.debug('Network Account Metadata', DPO(metadataDecoded));
+	console.log(util.inspect(resolvedMetadata, { depth: 10, colors: true }));
 }
 
 main().then(function() {
