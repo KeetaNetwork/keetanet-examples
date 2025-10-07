@@ -28,8 +28,28 @@ node_modules: node_modules/.done
 do-lint: node_modules
 	npm run eslint -- --config .eslint.config.mjs src ${KEETANET_EXAMPLES_LINT_ARGS}
 
+# Type Checking
+do-type-check: node_modules
+	npm run tsc -- --noEmit
+
 $(RUNNABLE): node_modules
 	npx tsx 'src/$@'
+
+# Files created during the "build" or "prepare" processes
+# are cleaned up by the "clean" target.
+#
+# These files should also be added to the ".gitignore" file.
+clean:
+	rm -rf dist
+	rm -f .tsbuildinfo
+
+# Files created during the "install" process are cleaned up
+# by the "distclean" target.
+#
+# These files should also be added to the ".gitignore" file.
+distclean: clean
+	rm -rf node_modules
+	rm -f .nvmrc
 
 .PHONY: all help node_modules $(RUNNABLE)
 
