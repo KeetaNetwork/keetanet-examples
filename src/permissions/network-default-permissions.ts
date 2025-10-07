@@ -23,7 +23,7 @@ async function main() {
 
 main().then(function() {
 	process.exit(0);
-}, function(err) {
+}, function(err: unknown) {
 	console.error(err);
 	process.exit(1);
 });

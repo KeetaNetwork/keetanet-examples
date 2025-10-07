@@ -5,12 +5,18 @@
 	"license": "MIT",
 	"type": "module",
 	"description": "Examples for using the Keetanet Anchor and Client Libraries",
+	"scripts": {
+		"eslint": "eslint",
+		"tsc": "tsc"
+	},
 	"dependencies": {
 		"@keetanetwork/anchor": "0.0.12",
 		"tsx": "4.20.3"
 	},
 	"devDependencies": {
+		"@keetanetwork/eslint-config-typescript": "1.4.7",
+		"@types/asn1js": "3.0.6",
 		"@types/node": "24.0.10",
-		"typescript": "5.9.3"
+		"typescript": "5.6.3"
 	}
 }

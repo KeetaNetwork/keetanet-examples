@@ -24,6 +24,10 @@ node_modules/.done: package.json
 node_modules: node_modules/.done
 	@touch node_modules
 
+# Run linting
+do-lint: node_modules
+	npm run eslint -- --config .eslint.config.mjs src ${KEETANET_EXAMPLES_LINT_ARGS}
+
 $(RUNNABLE): node_modules
 	npx tsx 'src/$@'
 
