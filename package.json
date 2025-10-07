@@ -11,6 +11,7 @@
 	},
 	"dependencies": {
 		"@keetanetwork/anchor": "0.0.12",
+		"@keetanetwork/keetanet-client": "0.14.8",
 		"tsx": "4.20.3"
 	},
 	"devDependencies": {

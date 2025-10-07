@@ -4,23 +4,23 @@
  * Description: Example of using the Keeta Net Client to get Account Metadata.
  */
 
-import * as KeetaAnchor from '@keetanetwork/anchor';
+import * as KeetaNet from '@keetanetwork/keetanet-client';
 import { debugPrintableObject } from '../helper.js';
 
 const DPO = debugPrintableObject;
 
 async function main() {
 	const networkAlias = 'test';
-	const config = KeetaAnchor.KeetaNet.Client.Config.getDefaultConfig(networkAlias);
-	const userClient = KeetaAnchor.KeetaNet.UserClient.fromNetwork(networkAlias, null);
+	const config = KeetaNet.Client.Config.getDefaultConfig(networkAlias);
+	const userClient = KeetaNet.UserClient.fromNetwork(networkAlias, null);
 	const networkAddress = userClient.networkAddress;
 
 	const networkInfo = await userClient.client.getAccountInfo(networkAddress);
 	const metadataBuffer = Buffer.from(networkInfo.info.metadata, 'base64');
-	const networkMetadata = KeetaAnchor.KeetaNet.lib.Utils.Helper.bufferToArrayBuffer(metadataBuffer);
+	const networkMetadata = KeetaNet.lib.Utils.Helper.bufferToArrayBuffer(metadataBuffer);
 	let metadataUncompressed: ArrayBuffer;
 	try {
-		metadataUncompressed = KeetaAnchor.KeetaNet.lib.Utils.Buffer.ZlibInflate(networkMetadata);
+		metadataUncompressed = KeetaNet.lib.Utils.Buffer.ZlibInflate(networkMetadata);
 	} catch {
 		metadataUncompressed = networkMetadata;
 	}
