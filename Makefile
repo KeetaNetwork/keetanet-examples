@@ -40,7 +40,6 @@ $(RUNNABLE): node_modules
 #
 # These files should also be added to the ".gitignore" file.
 clean:
-	rm -rf dist
 	rm -f .tsbuildinfo
 
 # Files created during the "install" process are cleaned up
@@ -49,7 +48,6 @@ clean:
 # These files should also be added to the ".gitignore" file.
 distclean: clean
 	rm -rf node_modules
-	rm -f .nvmrc
 
 .PHONY: all help node_modules do-lint do-type-check clean distclean $(RUNNABLE)
 
