@@ -33,4 +33,4 @@ jobs:
           cache: 'npm'
 
       - name: Run Lint
-        run: make do-lint
+        run: make -j do-lint do-type-check
