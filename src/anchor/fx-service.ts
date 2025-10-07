@@ -46,8 +46,8 @@ async function main() {
         // basic type narrowing for TOKEN
         throw(new Error('Tokens Should be TOKEN Key Algorithm'));
     }
-    console.debug(`$TKN1 Token: ${token1.publicKeyString.get()}`);
-    console.debug(`$TKN2 Token: ${token2.publicKeyString.get()}`);
+    console.debug(`$TKNA Token: ${token1.publicKeyString.get()}`);
+    console.debug(`$TKNB Token: ${token2.publicKeyString.get()}`);
 
     const initialTokenSupply = 50_000n;
     const builder = userClient.initBuilder();
@@ -186,7 +186,7 @@ async function main() {
     console.debug(`Final User Balances: ${util.inspect(debugPrintableObject(finalBalances), { depth: 4, colors: true })}`);
 
     const liquidityBalances = await userClient.client.getAllBalances(liquidityProvider);
-    console.debug(`Liquidity Pool Final Balances: ${util.inspect(debugPrintableObject(liquidityBalances), { depth: 4, colors: true })}`);
+    console.debug(`Liquidity Provider Final Balances: ${util.inspect(debugPrintableObject(liquidityBalances), { depth: 4, colors: true })}`);
 }
 
 main().then(function() {
