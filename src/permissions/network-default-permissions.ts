@@ -7,6 +7,8 @@
 import * as KeetaNet from '@keetanetwork/keetanet-client';
 import { debugPrintableObject } from '../helper.js';
 
+const DPO = debugPrintableObject;
+
 async function main() {
 	const networkAlias = 'test';
 	const client = KeetaNet.Client.fromNetwork(networkAlias);
@@ -17,7 +19,7 @@ async function main() {
 	console.debug('Network Alias:', networkAlias);
 	console.debug('Network ID:', config.network);
 	console.debug('Network Account:', networkAccount.publicKeyString.get());
-	console.debug('Network Account Info:', debugPrintableObject(networkAccountInfo));
+	console.debug('Network Account Info:', DPO(networkAccountInfo));
 	console.debug('Network Account Default Permissions:', networkAccountInfo.info.defaultPermission?.base.flags);
 }
 
