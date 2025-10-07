@@ -51,5 +51,5 @@ distclean: clean
 	rm -rf node_modules
 	rm -f .nvmrc
 
-.PHONY: all help node_modules $(RUNNABLE)
+.PHONY: all help node_modules do-lint do-type-check clean distclean $(RUNNABLE)
 
