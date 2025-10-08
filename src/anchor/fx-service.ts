@@ -63,7 +63,8 @@ async function main() {
 	const builder = userClient.initBuilder();
 
 	// Set token info and metadata with base permission of ACCESS for anyone to use the token
-	const basicMetadata = Buffer.from(JSON.stringify({ decimalPlaces: 6 }), 'utf-8').toString('base64');
+	const decimalPlaces = 6;
+	const basicMetadata = Buffer.from(JSON.stringify({ decimalPlaces }), 'utf-8').toString('base64');
 	for (const tokenInfo of [{ token: token1, name: 'TKNA' }, { token: token2, name: 'TKNB' }]) {
 		builder.setInfo({
 			name: tokenInfo.name,
@@ -118,8 +119,8 @@ async function main() {
 				 * Convert the request amount to bigint
 				 * Multiple the rate by the number of decimals (6 in this example) for the token so we can do bigint math
 				 */
-				const fixedDecimalRate = (rate * (10 ** 6)).toFixed(0);
-				const convertedAmount = (BigInt(request.amount) * BigInt(fixedDecimalRate)) / BigInt((10 ** 6));
+				const fixedDecimalRate = Math.round((rate * (10 ** decimalPlaces)));
+				const convertedAmount = (BigInt(request.amount) * BigInt(fixedDecimalRate)) / BigInt((10 ** decimalPlaces));
 				return({
 					account: liquidityProvider.publicKeyString.get(),
 					convertedAmount: convertedAmount.toString(),
