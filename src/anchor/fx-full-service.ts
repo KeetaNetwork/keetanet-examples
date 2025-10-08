@@ -5,7 +5,7 @@
  */
 
 import * as KeetaAnchor from '@keetanetwork/anchor';
-import { debugPrintableObject, getBaseTokenDecimals, getFaucetTokens } from '../helper.js';
+import { debugPrintableObject as DPO, getBaseTokenDecimals, getFaucetTokens } from '../helper.js';
 import { KeetaNetFXAnchorHTTPServer } from '@keetanetwork/anchor/services/fx/server.js';
 import type { TokenAddress } from '@keetanetwork/keetanet-client/lib/account.js';
 import * as util from 'util';
@@ -108,7 +108,13 @@ async function main() {
 		quoteSigner: liquidityProvider,
 		client: liquidityProviderUserClient,
 		fx: {
-			// Provided function to calculate the rate
+			/**
+			 * Example function to calculate the rate
+			 * This is purely an example and should not be used in a production scenario
+			 * Decimals for both tokens involved in the swap should be consider
+			 * As well as any other factors that should affect the conversion rate
+			 * like external pricing, constant product formulae etc
+			 */
 			getConversionRateAndFee: async function(request) {
 				let rate = 0.88;
 				// Affinity could be 'from' or 'to' and can change which direction the rate should be calculated
@@ -225,10 +231,10 @@ async function main() {
 	const finalBalances = await userClient.allBalances();
 	const liquidityBalances = await userClient.client.getAllBalances(liquidityProvider);
 
-	console.log(`Exchange Quote: ${util.inspect(debugPrintableObject(fxQuoteProvider.quote), { depth: 4, colors: true })}`);
-	console.log(`Initial User Balances: ${util.inspect(debugPrintableObject(initialBalances), { depth: 4, colors: true })}`);
-	console.log(`Final User Balances: ${util.inspect(debugPrintableObject(finalBalances), { depth: 4, colors: true })}`);
-	console.log(`Liquidity Provider Final Balances: ${util.inspect(debugPrintableObject(liquidityBalances), { depth: 4, colors: true })}`);
+	console.log(`Exchange Quote: ${util.inspect(DPO(quote), { depth: 4, colors: true })}`);
+	console.log(`Initial User Balances: ${util.inspect(DPO(initialBalances), { depth: 4, colors: true })}`);
+	console.log(`Final User Balances: ${util.inspect(DPO(finalBalances), { depth: 4, colors: true })}`);
+	console.log(`Liquidity Provider Final Balances: ${util.inspect(DPO(liquidityBalances), { depth: 4, colors: true })}`);
 }
 
 main().then(function() {
