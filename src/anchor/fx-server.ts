@@ -9,7 +9,7 @@
 
 import * as KeetaAnchor from '@keetanetwork/anchor';
 import { KeetaNetFXAnchorHTTPServer } from '@keetanetwork/anchor/services/fx/server.js';
-import { getBaseTokenDecimals } from '../helper.js';
+import { getTokenDecimals } from '../helper.js';
 
 const Account = KeetaAnchor.KeetaNet.lib.Account;
 
@@ -29,7 +29,7 @@ async function main() {
 	console.log(`Seed: ${seed}`);
 	console.log(`Liquidity FX Provider: ${liquidityProvider.publicKeyString.get()}`);
 
-	const decimalPlaces = await getBaseTokenDecimals(network);
+	const decimalPlaces = await getTokenDecimals(network);
 	if (decimalPlaces === null) {
 		throw(new Error('Unable to get base token decimals'));
 	}
@@ -50,18 +50,49 @@ async function main() {
 			 * like external pricing, constant product formulae etc
 			 */
 			getConversionRateAndFee: async function(request) {
+				/**
+				 * Select which is the "affinity" token and which is the "converted" token.
+				 * This is important to use the right decimalPlaces
+				 */
+				const affinityTokenPublicKey = request.affinity === 'from' ? request.from : request.to;
+				const convertedTokenPublicKey = request.affinity === 'from' ? request.to : request.from;
+
+				/**
+				 * Look up the token decimals for both
+				 */
+				const [affinityDecimals, convertedDecimals] = await Promise.all([
+					getTokenDecimals(network, affinityTokenPublicKey),
+					getTokenDecimals(network, convertedTokenPublicKey)
+				]);
+
+				if (affinityDecimals === null || convertedDecimals === null) {
+					throw(new Error('Unable to get Token Decimals'));
+				}
+
+				// Use the maximum decimals of either currency plus some padding to ensure no precision is lost
+				const rateDecimals = Math.max(affinityDecimals, convertedDecimals) + 8;
 				let rate = 0.88;
 				// Affinity could be 'from' or 'to' and can change which direction the rate should be calculated
 				if (request.affinity === 'to') {
 					rate = 1 / rate;
 				}
+
 				/**
 				 * Convert the request amount to bigint
-				 * Multiple the rate by the number of decimals for the token so we can do bigint math
-				 * This should look at the actual decimals for the tokens in the request
+				 * Multiple the rate by the number of decimals to ensure precision isn't lost during the conversion
 				 */
-				const fixedDecimalRate = Math.round((rate * (10 ** decimalPlaces)));
-				const convertedAmount = (BigInt(request.amount) * BigInt(fixedDecimalRate)) / BigInt((10 ** decimalPlaces));
+				const scaledDecimalRate = Math.round((rate * (10 ** rateDecimals)));
+				let convertedAmount = (BigInt(request.amount) * BigInt(scaledDecimalRate)) / BigInt((10 ** rateDecimals));
+
+				/**
+				 * Adjust the decimals for the converted amount based on the difference between the two token decimals
+				 */
+				const decimalAdjustment = BigInt(affinityDecimals - convertedDecimals);
+				if (decimalAdjustment > 0n) {
+					convertedAmount = convertedAmount / (10n ** decimalAdjustment);
+				} else if (decimalAdjustment < 0n) {
+					convertedAmount = convertedAmount * (10n ** (-decimalAdjustment));
+				}
 				return({
 					account: liquidityProvider.publicKeyString.get(),
 					convertedAmount: convertedAmount.toString(),

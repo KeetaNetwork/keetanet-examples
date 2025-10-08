@@ -5,7 +5,7 @@
  */
 
 import * as KeetaAnchor from '@keetanetwork/anchor';
-import { debugPrintableObject as DPO, getBaseTokenDecimals, getFaucetTokens } from '../helper.js';
+import { debugPrintableObject as DPO, getFaucetTokens, getTokenDecimals } from '../helper.js';
 import { KeetaNetFXAnchorHTTPServer } from '@keetanetwork/anchor/services/fx/server.js';
 import type { TokenAddress } from '@keetanetwork/keetanet-client/lib/account.js';
 import * as util from 'util';
@@ -33,7 +33,7 @@ async function main() {
 	// Create UserClient for Network and User Account
 	await using userClient = KeetaAnchor.KeetaNet.UserClient.fromNetwork(network, userAccount);
 
-	const baseTokenDecimals = await getBaseTokenDecimals(network);
+	const baseTokenDecimals = await getTokenDecimals(network);
 	if (baseTokenDecimals === null) {
 		throw(new Error(`Failed to get Base Token Decimals for Network: ${network}`));
 	}
@@ -57,15 +57,16 @@ async function main() {
 		throw(new Error('Tokens Should be TOKEN Key Algorithm'));
 	}
 
-	const initialTokenSupply = 50_000n;
+	const initialTokenSupply = 5000n;
 
 	// Create a builder to construct the blocks
 	const builder = userClient.initBuilder();
 
 	// Set token info and metadata with base permission of ACCESS for anyone to use the token
-	const decimalPlaces = 6;
-	const basicMetadata = Buffer.from(JSON.stringify({ decimalPlaces }), 'utf-8').toString('base64');
-	for (const tokenInfo of [{ token: token1, name: 'TKNA' }, { token: token2, name: 'TKNB' }]) {
+	const token1Info = { token: token1, name: 'TKNA', decimalPlaces: 6 };
+	const token2Info = { token: token2, name: 'TKNB', decimalPlaces: 2 };
+	for (const tokenInfo of [token1Info, token2Info]) {
+		const basicMetadata = Buffer.from(JSON.stringify({ decimalPlaces: tokenInfo.decimalPlaces }), 'utf-8').toString('base64');
 		builder.setInfo({
 			name: tokenInfo.name,
 			description: `Example Token ${tokenInfo.name}`,
@@ -74,18 +75,18 @@ async function main() {
 		}, { account: tokenInfo.token });
 
 		// Setup Initial Token Supplies and Distribute Amounts to Liquidity Pool
-		builder.modifyTokenSupply(initialTokenSupply, { account: tokenInfo.token });
+		builder.modifyTokenSupply(initialTokenSupply * BigInt((10 ** tokenInfo.decimalPlaces)), { account: tokenInfo.token });
 
 		/**
 		 * Compute blocks to ensure token supply is added before sending.
 		 * The builder does not always guarantee correct order so we compute the supply blocks to ensure they come first
 		 */
 		await builder.computeBlocks();
-		builder.send(liquidityProvider, 10_000n, tokenInfo.token, undefined, { account: tokenInfo.token });
+		builder.send(liquidityProvider, 1000n * BigInt((10 ** tokenInfo.decimalPlaces)), tokenInfo.token, undefined, { account: tokenInfo.token });
 	}
 
 	// Send some TKNA Supply to user account
-	builder.send(userAccount, 10_000n, token1, undefined, { account: token1 });
+	builder.send(userAccount, 200n * BigInt((10 ** token1Info.decimalPlaces)), token1, undefined, { account: token1 });
 
 	// Send some KTA Base Token to the liquidity provider so it can pay fees
 	builder.send(liquidityProvider, 2n * (10n ** BigInt(baseTokenDecimals)), userClient.baseToken);
@@ -116,23 +117,55 @@ async function main() {
 			 * like external pricing, constant product formulae etc
 			 */
 			getConversionRateAndFee: async function(request) {
+				/**
+				 * Select which is the "affinity" token and which is the "converted" token.
+				 * This is important to use the right decimalPlaces
+				 */
+				const affinityTokenPublicKey = request.affinity === 'from' ? request.from : request.to;
+				const convertedTokenPublicKey = request.affinity === 'from' ? request.to : request.from;
+
+				/**
+				 * Look up the token decimals for both
+				 */
+				const [affinityDecimals, convertedDecimals] = await Promise.all([
+					getTokenDecimals(network, affinityTokenPublicKey),
+					getTokenDecimals(network, convertedTokenPublicKey)
+				]);
+
+				if (affinityDecimals === null || convertedDecimals === null) {
+					throw(new Error('Unable to get Token Decimals'));
+				}
+
+				// Use the maximum decimals of either currency plus some padding to ensure no precision is lost
+				const rateDecimals = Math.max(affinityDecimals, convertedDecimals) + 8;
 				let rate = 0.88;
 				// Affinity could be 'from' or 'to' and can change which direction the rate should be calculated
 				if (request.affinity === 'to') {
 					rate = 1 / rate;
 				}
+
 				/**
 				 * Convert the request amount to bigint
-				 * Multiple the rate by the number of decimals (6 in this example) for the token so we can do bigint math
+				 * Multiple the rate by the number of decimals to ensure precision isn't lost during the conversion
 				 */
-				const fixedDecimalRate = Math.round((rate * (10 ** decimalPlaces)));
-				const convertedAmount = (BigInt(request.amount) * BigInt(fixedDecimalRate)) / BigInt((10 ** decimalPlaces));
+				const scaledDecimalRate = Math.round((rate * (10 ** rateDecimals)));
+				let convertedAmount = (BigInt(request.amount) * BigInt(scaledDecimalRate)) / BigInt((10 ** rateDecimals));
+
+				/**
+				 * Adjust the decimals for the converted amount based on the difference between the two token decimals
+				 */
+				const decimalAdjustment = BigInt(affinityDecimals - convertedDecimals);
+				if (decimalAdjustment > 0n) {
+					convertedAmount = convertedAmount / (10n ** decimalAdjustment);
+				} else if (decimalAdjustment < 0n) {
+					convertedAmount = convertedAmount * (10n ** (-decimalAdjustment));
+				}
 				return({
 					account: liquidityProvider.publicKeyString.get(),
 					convertedAmount: convertedAmount.toString(),
 					cost: {
 						amount: '0',
-						token: token1.publicKeyString.get()
+						token: userClient.baseToken.publicKeyString.get()
 					}
 				});
 			}
@@ -195,8 +228,8 @@ async function main() {
 		from: token1,
 		// Token we want to receive
 		to: token2,
-		// Amount to exchange.  Token is determined from `affinity`
-		amount: '100',
+		// Amount to exchange. Token is determined from `affinity`
+		amount: (100n * BigInt((10 ** token1Info.decimalPlaces))).toString(),
 		// Direction of the exchange and what the amount should apply too
 		affinity: 'from'
 	}
@@ -213,6 +246,7 @@ async function main() {
 		throw(new Error('FX Provider is undefined'));
 	}
 	const quote = fxQuoteProvider.quote;
+	console.log(`Exchange Quote: ${util.inspect(DPO(quote), { depth: 4, colors: true })}`);
 
 	// Create the swap request block.  Defined amount being sent from our account
 	const from = { account: userAccount, token: swapRequest.from, amount: BigInt(swapRequest.amount) };
@@ -231,7 +265,6 @@ async function main() {
 	const finalBalances = await userClient.allBalances();
 	const liquidityBalances = await userClient.client.getAllBalances(liquidityProvider);
 
-	console.log(`Exchange Quote: ${util.inspect(DPO(quote), { depth: 4, colors: true })}`);
 	console.log(`Initial User Balances: ${util.inspect(DPO(initialBalances), { depth: 4, colors: true })}`);
 	console.log(`Final User Balances: ${util.inspect(DPO(finalBalances), { depth: 4, colors: true })}`);
 	console.log(`Liquidity Provider Final Balances: ${util.inspect(DPO(liquidityBalances), { depth: 4, colors: true })}`);
