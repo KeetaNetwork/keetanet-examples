@@ -5,9 +5,7 @@
  */
 
 import * as KeetaNet from '@keetanetwork/keetanet-client';
-import { debugPrintableObject } from '../helper.js';
-
-const DPO = debugPrintableObject;
+import { debugPrintableObject as DPO } from '../helper.js';
 
 async function main() {
 	const networkAlias = 'test';
