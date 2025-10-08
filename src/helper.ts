@@ -15,7 +15,7 @@ export async function getBaseTokenDecimals(network: Networks): Promise<number | 
 	return(null);
 }
 
-export async function waitForResult(code: () => Promise<boolean>, timeout = 10000) {
+export async function waitForResult(code: () => Promise<boolean>, timeout = 10000): Promise<boolean> {
 	for (const startTime = Date.now(); startTime + timeout > Date.now();) {
 		const result = await code();
 		if (result) {
@@ -26,7 +26,7 @@ export async function waitForResult(code: () => Promise<boolean>, timeout = 1000
 	return(false);
 }
 
-export async function getFaucetTokens(acct: Account | string, network: Networks) {
+export async function getFaucetTokens(acct: Account | string, network: Networks): Promise<boolean> {
 	if (network !== 'test') {
 		throw(new Error('Faucet is Only Available on the Test Network'));
 	}
