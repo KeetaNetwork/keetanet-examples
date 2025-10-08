@@ -1,8 +1,9 @@
 import * as KeetaNet from '@keetanetwork/keetanet-client';
 import type { Account } from '@keetanetwork/keetanet-client/lib/account.js';
 import type { Networks } from '@keetanetwork/keetanet-client/config/index.js';
+import type { JSONSerializable } from '@keetanetwork/keetanet-client/lib/utils/conversion.js';
 
-const debugPrintableObject = KeetaNet.lib.Utils.Helper.debugPrintableObject;
+const debugPrintableObject: (input: unknown) => JSONSerializable = KeetaNet.lib.Utils.Helper.debugPrintableObject.bind(KeetaNet.lib.Utils.Helper);
 
 export async function getBaseTokenDecimals(network: Networks): Promise<number | null> {
 	const userClient = KeetaNet.UserClient.fromNetwork(network, null);
