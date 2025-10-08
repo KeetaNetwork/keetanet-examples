@@ -58,7 +58,7 @@ async function main() {
 				/**
 				 * Convert the request amount to bigint
 				 * Multiple the rate by the number of decimals for the token so we can do bigint math
-				 * This should look at the decimals in the 
+				 * This should look at the actual decimals for the tokens in the request
 				 */
 				const fixedDecimalRate = Math.round((rate * (10 ** decimalPlaces)));
 				const convertedAmount = (BigInt(request.amount) * BigInt(fixedDecimalRate)) / BigInt((10 ** decimalPlaces));
@@ -82,10 +82,10 @@ async function main() {
 
 	// Run the shutdown logic
 	await new Promise<void>((resolve) => {
-		process.on('SIGINT', () => {
+		process.on('SIGINT', async () => {
 			console.log('\nReceived Ctrl+C (SIGINT)');
 			console.log('Shutting down server...');
-			fxServer.stop();
+			await fxServer.stop();
 			resolve();
 		});
 	});

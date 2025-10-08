@@ -7,10 +7,11 @@
 import * as KeetaNet from '@keetanetwork/keetanet-client';
 import { debugPrintableObject as DPO } from '../helper.js';
 
+const network = 'test';
+
 async function main() {
-	const networkAlias = 'test';
-	const config = KeetaNet.Client.Config.getDefaultConfig(networkAlias);
-	const userClient = KeetaNet.UserClient.fromNetwork(networkAlias, null);
+	const config = KeetaNet.Client.Config.getDefaultConfig(network);
+	const userClient = KeetaNet.UserClient.fromNetwork(network, null);
 	const networkAddress = userClient.networkAddress;
 
 	const networkInfo = await userClient.client.getAccountInfo(networkAddress);
@@ -25,7 +26,7 @@ async function main() {
 	const metadataBytes = Buffer.from(metadataUncompressed);
 	const metadataDecoded: unknown = JSON.parse(metadataBytes.toString('utf-8'));
 
-	console.debug('Network Alias:', networkAlias);
+	console.debug('Network Alias:', network);
 	console.debug('Network ID:', config.network);
 	console.debug('Network Account:', networkAddress.publicKeyString.get());
 	console.debug('Network Account Metadata', DPO(metadataDecoded));
