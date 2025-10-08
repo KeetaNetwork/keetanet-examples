@@ -1,18 +1,26 @@
 {
 	"name": "keetanet-examples",
 	"version": "0.1.0",
-	"scripts": {
-		"example1": "tsx example1.ts",
-		"example2": "tsx example2.ts"
-	},
 	"author": "Keeta Token Genesis LLC",
 	"license": "MIT",
-	"description": "Examples for using the Keetanet client library",
+	"type": "module",
+	"description": "Examples for using the Keetanet Anchor and Client Libraries",
+	"scripts": {
+		"eslint": "eslint",
+		"tsc": "tsc"
+	},
 	"dependencies": {
-		"@keetanetwork/keetanet-client": "0.10.5",
+		"@keetanetwork/anchor": "0.0.12",
+		"@keetanetwork/keetanet-client": "0.14.8",
 		"tsx": "4.20.3"
 	},
 	"devDependencies": {
-		"@types/node": "24.0.10"
+		"@keetanetwork/eslint-config-typescript": "1.4.7",
+		"@types/asn1js": "3.0.6",
+		"@types/node": "24.0.10",
+		"typescript": "5.6.3"
+	},
+	"engines": {
+		"node": "20.18.0"
 	}
 }
