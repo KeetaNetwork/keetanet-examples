@@ -117,27 +117,8 @@ async function main() {
 			 * like external pricing, constant product formulae etc
 			 */
 			getConversionRateAndFee: async function(request) {
-				/**
-				 * Select which is the "affinity" token and which is the "converted" token.
-				 * This is important to use the right decimalPlaces
-				 */
-				const affinityTokenPublicKey = request.affinity === 'from' ? request.from : request.to;
-				const convertedTokenPublicKey = request.affinity === 'from' ? request.to : request.from;
-
-				/**
-				 * Look up the token decimals for both
-				 */
-				const [affinityDecimals, convertedDecimals] = await Promise.all([
-					getTokenDecimals(network, affinityTokenPublicKey),
-					getTokenDecimals(network, convertedTokenPublicKey)
-				]);
-
-				if (affinityDecimals === null || convertedDecimals === null) {
-					throw(new Error('Unable to get Token Decimals'));
-				}
-
-				// Use the maximum decimals of either currency plus some padding to ensure no precision is lost
-				const rateDecimals = Math.max(affinityDecimals, convertedDecimals) + 8;
+				const pairRatio = 10n ** 4n;
+				const ratePrecision = 8;
 				let rate = 0.88;
 				// Affinity could be 'from' or 'to' and can change which direction the rate should be calculated
 				if (request.affinity === 'to') {
@@ -146,20 +127,16 @@ async function main() {
 
 				/**
 				 * Convert the request amount to bigint
-				 * Multiple the rate by the number of decimals to ensure precision isn't lost during the conversion
+				 * Convert the rate to a scaled precision rate to ensure no precision is lost during the conversion
 				 */
-				const scaledDecimalRate = Math.round((rate * (10 ** rateDecimals)));
-				let convertedAmount = (BigInt(request.amount) * BigInt(scaledDecimalRate)) / BigInt((10 ** rateDecimals));
-
-				/**
-				 * Adjust the decimals for the converted amount based on the difference between the two token decimals
-				 */
-				const decimalAdjustment = BigInt(affinityDecimals - convertedDecimals);
-				if (decimalAdjustment > 0n) {
-					convertedAmount = convertedAmount / (10n ** decimalAdjustment);
-				} else if (decimalAdjustment < 0n) {
-					convertedAmount = convertedAmount * (10n ** (-decimalAdjustment));
+				const scaledRate = Math.round((rate * (10 ** ratePrecision)));
+				let convertedAmount = (BigInt(request.amount) * BigInt(scaledRate)) / BigInt((10 ** ratePrecision));
+				if (request.affinity === 'to') {
+					convertedAmount = convertedAmount * pairRatio;
+				} else {
+					convertedAmount = convertedAmount / pairRatio;
 				}
+
 				return({
 					account: liquidityProvider.publicKeyString.get(),
 					convertedAmount: convertedAmount.toString(),
