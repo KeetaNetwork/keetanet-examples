@@ -1,7 +1,7 @@
 #! /usr/bin/env ts-node
 
 /*
- * Description: Example of using the Keeta FX HTTP Server.
+ * Description: Example of using the Keeta Anchor FX HTTP Server.
  * This example starts a very basic FX Server that provides the necessary endpoints
  * The KeetaNetFXAnchorHTTPServer class includes logic for handling the swap blocks and publishing
  * The user is responsible for providing the configuration including a method for getConversionRateAndFee

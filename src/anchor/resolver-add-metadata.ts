@@ -1,7 +1,7 @@
 #! /usr/bin/env ts-node
 
 /*
- * Description: Example of Adding Custom Keeta Anchor Resolver Metadata.
+ * Description: Example of Using the Keeta Anchor Client to add Custom Anchor Resolver Metadata.
  */
 
 import * as KeetaAnchor from '@keetanetwork/anchor';

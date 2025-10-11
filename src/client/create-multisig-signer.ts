@@ -1,7 +1,7 @@
 #! /usr/bin/env ts-node
 
 /*
- * Description: Example of using the Keeta Net Client to Create Different Accounts Types.
+ * Description: Example of using the Keeta Network Client to Create a Multisig Identifier.
  */
 
 import * as KeetaNet from '@keetanetwork/keetanet-client';

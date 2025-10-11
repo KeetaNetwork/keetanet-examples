@@ -1,7 +1,7 @@
 #! /usr/bin/env ts-node
 
 /*
- * Description: Example of using the Keeta FX Server and Client.
+ * Description: Example of using the Keeta Anchor FX Server and Client through the full exchange process.
  */
 
 import * as KeetaAnchor from '@keetanetwork/anchor';

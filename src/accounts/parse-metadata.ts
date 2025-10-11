@@ -1,7 +1,7 @@
 #! /usr/bin/env ts-node
 
 /*
- * Description: Example of using the Keeta Net Client to get Account Metadata.
+ * Description: Example of using the Keeta Network Client to get Account Metadata.
  */
 
 import * as KeetaNet from '@keetanetwork/keetanet-client';

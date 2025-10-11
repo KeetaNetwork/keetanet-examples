@@ -1,7 +1,7 @@
 #! /usr/bin/env ts-node
 
 /*
- * Description: Example of using the Keeta Client using the Test Network Demo FX Anchor
+ * Description: Example of using the Keeta Anchor Client to interact with the Test Network Demo FX Anchor
  */
 
 import * as KeetaAnchor from '@keetanetwork/anchor';
