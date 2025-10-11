@@ -1,7 +1,7 @@
 #! /usr/bin/env ts-node
 
 /*
- * Description: Example of using ASN.1 validation with KeetaNet library
+ * Description: Example of using the Keeta Network Client to Perform ASN.1 validation
  */
 
 import * as KeetaNet from '@keetanetwork/keetanet-client';

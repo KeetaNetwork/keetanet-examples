@@ -1,7 +1,7 @@
 #! /usr/bin/env ts-node
 
 /*
- * Description: Example of processing Network Permissions using KeetaNet Client.
+ * Description: Example of Using the Keeta Network Client to List Network Default Permissions.
  */
 
 import * as KeetaNet from '@keetanetwork/keetanet-client';
