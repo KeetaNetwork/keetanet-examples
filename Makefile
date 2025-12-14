@@ -26,7 +26,7 @@ node_modules: node_modules/.done
 
 # Run linting
 do-lint: node_modules
-	npm run eslint -- --config .eslint.config.mjs ${KEETANET_EXAMPLES_LINT_ARGS}
+	npm run eslint -- --config .eslint.config.mjs $(KEETANET_EXAMPLES_LINT_ARGS)
 
 # Type Checking
 do-type-check: node_modules
