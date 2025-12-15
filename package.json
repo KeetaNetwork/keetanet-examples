@@ -13,7 +13,9 @@
 		"make:test": "make test",
 		"make:do-lint": "make do-lint",
 		"make:clean": "make clean",
-		"make:distclean": "make distclean"
+		"make:distclean": "make distclean",
+		"make:do-type-check": "make do-type-check",
+		"make:help": "make help"
 	},
 	"dependencies": {
 		"@keetanetwork/anchor": "0.0.12",
