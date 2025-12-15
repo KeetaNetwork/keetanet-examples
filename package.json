@@ -1,32 +1,32 @@
 {
-  "name": "keetanet-examples",
-  "version": "0.1.0",
-  "author": "Keeta Token Genesis LLC",
-  "license": "MIT",
-  "type": "module",
-  "description": "Examples for using the Keetanet Anchor and Client Libraries",
-  "scripts": {
-    "eslint": "eslint",
-    "tsc": "tsc",
-    "make:all": "make all",
-    "make:dist": "make dist",
-    "make:test": "make test",
-    "make:do-lint": "make do-lint",
-    "make:clean": "make clean",
-    "make:distclean": "make distclean"
-  },
-  "dependencies": {
-    "@keetanetwork/anchor": "0.0.12",
-    "@keetanetwork/keetanet-client": "0.14.8",
-    "tsx": "4.20.3"
-  },
-  "devDependencies": {
-    "@keetanetwork/eslint-config-typescript": "1.4.7",
-    "@types/asn1js": "3.0.6",
-    "@types/node": "24.0.10",
-    "typescript": "5.6.3"
-  },
-  "engines": {
-    "node": "20.18.0"
-  }
+	"name": "keetanet-examples",
+	"version": "0.1.0",
+	"author": "Keeta Token Genesis LLC",
+	"license": "MIT",
+	"type": "module",
+	"description": "Examples for using the Keetanet Anchor and Client Libraries",
+	"scripts": {
+		"eslint": "eslint",
+		"tsc": "tsc",
+		"make:all": "make all",
+		"make:dist": "make dist",
+		"make:test": "make test",
+		"make:do-lint": "make do-lint",
+		"make:clean": "make clean",
+		"make:distclean": "make distclean"
+	},
+	"dependencies": {
+		"@keetanetwork/anchor": "0.0.12",
+		"@keetanetwork/keetanet-client": "0.14.8",
+		"tsx": "4.20.3"
+	},
+	"devDependencies": {
+		"@keetanetwork/eslint-config-typescript": "1.4.7",
+		"@types/asn1js": "3.0.6",
+		"@types/node": "24.0.10",
+		"typescript": "5.6.3"
+	},
+	"engines": {
+		"node": "20.18.0"
+	}
 }
