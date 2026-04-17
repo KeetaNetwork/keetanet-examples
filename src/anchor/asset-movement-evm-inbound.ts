@@ -66,16 +66,12 @@ async function main() {
 				networkId: userClient.network
 			}
 		}
-		// Note: Rail (like 'EVM_CALL') is determined by the provider's supported operations
+		// Note: Rail (like 'EVM_CALL', 'EVM_SEND') is determined by the provider's supported operations
 	});
 
 	if (!providers || providers.length === 0) {
-		console.error('No Asset Movement providers found');
-		console.error('This example requires an Asset Movement anchor to be configured.');
-		process.exit(1);
+		throw(new Error('No Asset Movement providers found. This example requires an Asset Movement anchor to be configured.'));
 	}
-
-	console.log(`Found ${providers.length} provider(s)`);
 
 	// Use the first provider for this example
 	const provider = providers[0];
@@ -142,8 +138,7 @@ async function main() {
 	const shouldMonitor = await promptUser('Would you like to monitor for incoming transactions? (yes/no): ');
 
 	if (shouldMonitor.toLowerCase() === 'yes' || shouldMonitor.toLowerCase() === 'y') {
-		console.log('Monitoring for transactions...');
-		console.log('(This will check every 10 seconds. Press Ctrl+C to stop)');
+		console.log('Monitoring for transactions... (This will check every 10 seconds. Press Ctrl+C to stop)');
 
 		// Monitor for completed transaction
 		const monitoringInterval = setInterval(async () => {

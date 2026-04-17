@@ -15,7 +15,7 @@
  */
 
 import * as KeetaAnchor from '@keetanetwork/anchor';
-import { debugPrintableObject as DPO, getFaucetTokens, promptUser } from '../helper.js';
+import { debugPrintableObject as DPO, formatDecimals, getFaucetTokens, promptUser } from '../helper.js';
 import * as util from 'util';
 
 const Account = KeetaAnchor.KeetaNet.lib.Account;
@@ -31,23 +31,7 @@ const network = 'test';
  */
 const BASE_SEPOLIA_CHAIN_ID = 84532n;
 const KEETA_USDC_ASSET = 'keeta_apna75yhhvnv4ei7ape55hndk4yepno7a7i2mhtiwahiygixjcnmvswxhnmnk';
-
-/**
- * Helper function to format USDC amount (6 decimals) to a readable string
- * Safely handles bigint values without overflow
- */
-function formatUSDC(amount: bigint): string {
-	const wholePart = amount / 1_000_000n;
-	const decimalPart = amount % 1_000_000n;
-
-	// Format with 6 decimal places, then remove trailing zeros
-	const decimalStr = decimalPart.toString().padStart(6, '0').replace(/0+$/, '');
-
-	if (decimalStr === '') {
-		return(wholePart.toString());
-	}
-	return(`${wholePart}.${decimalStr}`);
-}
+const USDC_DECIMALS = 6;
 
 async function main() {
 	console.log('Keeta Asset Movement Example: Keeta => Base Sepolia USDC');
@@ -55,7 +39,7 @@ async function main() {
 
 	console.log('IMPORTANT: Before running this example:');
 	console.log('1. Run asset-movement-evm-inbound.ts to receive USDC tokens on Keeta Test Network');
-	console.log('2. Ensure you have sufficient USDC balance on Keeta to send');
+	console.log('2. Ensure you have sufficient USDC balance on Keeta to send\n');
 
 	// Prompt for Keeta seed
 	const seed = await promptUser('Enter your Keeta SEED (or press Enter for new random seed): ');
@@ -71,8 +55,6 @@ async function main() {
 	if (!baseRecipientAddress || baseRecipientAddress.length !== 42 || !baseRecipientAddress.startsWith('0x')) {
 		throw(new Error('Invalid Base Sepolia address. Must be a valid Ethereum address (0x...)'));
 	}
-
-	console.log(`Base Sepolia Recipient: ${baseRecipientAddress}`);
 
 	// Create UserClient for the Keeta Test Network
 	await using userClient = KeetaAnchor.KeetaNet.UserClient.fromNetwork(network, userAccount);
@@ -95,27 +77,25 @@ async function main() {
 	}
 
 	const currentBalance = await userClient.balance(usdcTokenAccount);
-	console.log(`Current USDC Balance: ${currentBalance} (${formatUSDC(currentBalance)} USDC)`);
+	console.log(`\nCurrent USDC Balance: ${currentBalance} (${formatDecimals(currentBalance, USDC_DECIMALS)} USDC)`);
 
 	if (currentBalance === 0n) {
 		throw(new Error('You have no USDC balance on Keeta Test Network. Please run asset-movement-evm-inbound.ts first to get USDC tokens.'));
 	}
 
 	// Prompt for amount to send
-	const amountInput = await promptUser(`How much USDC do you want to send? (in USDC, max ${formatUSDC(currentBalance)}): `);
+	const amountInput = await promptUser(`How much USDC do you want to send? (in USDC, max ${formatDecimals(currentBalance, USDC_DECIMALS)}): `);
 	const amountInUSDC = parseFloat(amountInput);
 
 	if (isNaN(amountInUSDC) || amountInUSDC <= 0) {
 		throw(new Error('Invalid amount. Please enter a positive number.'));
 	}
 
-	const amountToSend = BigInt(Math.floor(amountInUSDC * 1_000_000)); // Convert to smallest unit (6 decimals)
+	const amountToSend = BigInt(Math.floor(amountInUSDC * (10 ** USDC_DECIMALS))); // convert to raw amount
 
 	if (amountToSend > currentBalance) {
-		throw(new Error(`Insufficient balance. You only have ${formatUSDC(currentBalance)} USDC`));
+		throw(new Error(`Insufficient balance. You only have ${formatDecimals(currentBalance, USDC_DECIMALS)} USDC`));
 	}
-
-	console.log(`Preparing to send ${formatUSDC(amountToSend)} USDC to Base Sepolia...`);
 
 	// Create Asset Movement Client to handle cross-chain transfers
 	const assetMovementClient = new KeetaAnchor.AssetMovement.Client(userClient, {
@@ -124,7 +104,6 @@ async function main() {
 	});
 
 	// Find Asset Movement providers that support Keeta => Base Sepolia
-	console.log('Finding Asset Movement providers...');
 	const providers = await assetMovementClient.getProvidersForTransfer({
 		asset: KEETA_USDC_ASSET,
 		// Source: Keeta Network
@@ -148,8 +127,6 @@ async function main() {
 	if (!providers || providers.length === 0) {
 		throw(new Error('No Asset Movement providers found for Keeta => Base Sepolia. Please ensure an Asset Movement anchor is configured to support this transfer.'));
 	}
-
-	console.log(`Found ${providers.length} provider(s) for Keeta => Base Sepolia transfer.`);
 
 	// Use the first provider for this example
 	const provider = providers[0];
@@ -186,7 +163,7 @@ async function main() {
 		throw(new Error('Failed to initiate transfer'));
 	}
 
-	console.log(`Transfer initiated with ID: ${initiateResponse.transferId}`);
+	console.log(`\nTransfer initiated with ID: ${initiateResponse.transferId}`);
 	console.log('Instructions:', util.inspect(DPO(initiateResponse.instructions), { depth: 4, colors: true }));
 
 	// Get the bridge holding account from the instructions
@@ -195,27 +172,22 @@ async function main() {
 		throw(new Error('Expected KEETA_SEND instruction not found'));
 	}
 
-	const bridgeHoldingAccount = Account.toAccount(instruction.sendToAddress);
-	const transferId = BigInt(initiateResponse.transferId);
+	const anchorAccount = Account.toAccount(instruction.sendToAddress);
 
 	if (!instruction.external) {
 		throw(new Error('Expected external field data in instruction'));
 	}
 
-	console.log(`Bridge Holding Account: ${bridgeHoldingAccount.publicKeyString.get()}`);
-	console.log(`Transfer ID: ${transferId}`);
-	console.log(`Constructing transaction with external data ${instruction.external}`);
-
-	const sendBlockResult = await userClient.send(bridgeHoldingAccount, amountToSend, usdcTokenAccount, instruction.external, { generateFeeBlock: userClient.config.generateFeeBlock });
+	// Send the specified amount of USDC to the anchor account with the external field data from the instructions
+	// External field data tells the anchor the details for the transfer
+	const sendBlockResult = await userClient.send(anchorAccount, amountToSend, usdcTokenAccount, instruction.external, { generateFeeBlock: userClient.config.generateFeeBlock });
 
 	if (!sendBlockResult.publish || sendBlockResult.from !== 'direct') {
-		throw(new Error('Failed to send block to bridge holding account'));
+		throw(new Error('Failed to send block to anchor account'));
 	}
-	const sendBlock = sendBlockResult.voteStaple.blocks[0];
-	console.log(`Block Hash: ${sendBlock?.hash.toString()}`);
+
 	// Monitor the transfer status
-	console.log('Monitoring transfer status...');
-	console.log('(This will check every 5 seconds. Press Ctrl+C to stop)');
+	console.log('\nMonitoring transfer status... (This will check every 5 seconds. Press Ctrl+C to stop)');
 
 	const startTime = Date.now();
 	const monitoringInterval = setInterval(async () => {
@@ -237,14 +209,14 @@ async function main() {
 				console.log('  TRANSFER COMPLETED SUCCESSFULLY! ');
 				console.log('========================================');
 				console.log(`Transfer ID: ${initiateResponse.transferId}`);
-				console.log(`Amount: ${formatUSDC(amountToSend)} USDC`);
+				console.log(`Amount: ${formatDecimals(amountToSend, USDC_DECIMALS)} USDC`);
 				console.log(`From: Keeta Test Network`);
 				console.log(`To: Base Sepolia (${baseRecipientAddress})`);
 				console.log('========================================\n');
 
 				// Check final Keeta balance
 				const finalBalance = await userClient.client.getBalance(userAccount, usdcTokenAccount);
-				console.log(`Final USDC Balance on Keeta: ${formatUSDC(finalBalance)} USDC`);
+				console.log(`Final USDC Balance on Keeta: ${formatDecimals(finalBalance, USDC_DECIMALS)} USDC`);
 
 				clearInterval(monitoringInterval);
 				process.exit(0);

@@ -129,6 +129,23 @@ export async function promptUser(question: string): Promise<string> {
 	return(response);
 }
 
+/**
+ * Helper function to format token amount decimals to a readable string
+ * Safely handles bigint values without overflow
+ */
+export function formatDecimals(amount: bigint, decimals: number): string {
+	const wholePart = amount / BigInt(10 ** decimals);
+	const decimalPart = amount % BigInt(10 ** decimals);
+
+	// Format with specified decimal places, then remove trailing zeros
+	const decimalStr = decimalPart.toString().padStart(decimals, '0').replace(/0+$/, '');
+
+	if (decimalStr === '') {
+		return(wholePart.toString());
+	}
+	return(`${wholePart}.${decimalStr}`);
+}
+
 export {
 	debugPrintableObject
 };
