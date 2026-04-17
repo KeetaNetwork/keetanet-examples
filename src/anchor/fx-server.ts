@@ -65,11 +65,11 @@ async function main() {
 				const scaledDecimalRate = Math.round((rate * (10 ** rateDecimals)));
 				const convertedAmount = (BigInt(request.amount) * BigInt(scaledDecimalRate)) / BigInt((10 ** rateDecimals));
 				return({
-					account: liquidityProvider.publicKeyString.get(),
-					convertedAmount: convertedAmount.toString(),
+					account: liquidityProvider,
+					convertedAmount: convertedAmount,
 					cost: {
-						amount: '0',
-						token: liquidityProviderUserClient.baseToken.publicKeyString.get()
+						amount: 0n,
+						token: liquidityProviderUserClient.baseToken
 					}
 				});
 			}

@@ -138,11 +138,11 @@ async function main() {
 				}
 
 				return({
-					account: liquidityProvider.publicKeyString.get(),
-					convertedAmount: convertedAmount.toString(),
+					account: liquidityProvider,
+					convertedAmount: convertedAmount,
 					cost: {
-						amount: '0',
-						token: userClient.baseToken.publicKeyString.get()
+						amount: 0n,
+						token: userClient.baseToken
 					}
 				});
 			}
@@ -200,13 +200,13 @@ async function main() {
 	const initialBalances = await userClient.allBalances();
 
 	// Details of the swap request we want to make
-	const swapRequest: { from: TokenAddress, to: TokenAddress, amount: string, affinity: 'from' | 'to' } = {
+	const swapRequest: { from: TokenAddress, to: TokenAddress, amount: bigint, affinity: 'from' | 'to' } = {
 		// Token we want to send
 		from: token1,
 		// Token we want to receive
 		to: token2,
 		// Amount to exchange. Token is determined from `affinity`
-		amount: (100n * BigInt((10 ** token1Info.decimalPlaces))).toString(),
+		amount: (100n * BigInt((10 ** token1Info.decimalPlaces))),
 		// Direction of the exchange and what the amount should apply too
 		affinity: 'from'
 	}
@@ -229,7 +229,7 @@ async function main() {
 	const from = { account: userAccount, token: swapRequest.from, amount: BigInt(swapRequest.amount) };
 
 	// Define amount to be received/swapped with the FX provider using the converted amount provided in the quote
-	const to = { account: Account.fromPublicKeyString(quote.account), token: swapRequest.to, amount: BigInt(quote.convertedAmount) };
+	const to = { account: quote.account, token: swapRequest.to, amount: BigInt(quote.convertedAmount) };
 	/**
 	 * Create the swap block.
 	 * This is optional and will be handled by the FX Client automatically
