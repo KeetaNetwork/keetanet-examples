@@ -42,6 +42,7 @@ async function main() {
 
 	// Create Asset Movement Client to handle cross-chain transfers
 	const assetMovementClient = new KeetaAnchor.AssetMovement.Client(userClient, {
+		// default anchor root resolver address, can be customized to connect to a specific anchor
 		root: userClient.networkAddress,
 		...logger
 	});
@@ -137,7 +138,7 @@ async function main() {
 	// Wait for user confirmation before monitoring transactions
 	const shouldMonitor = await promptUser('Would you like to monitor for incoming transactions? (yes/no): ');
 
-	if (shouldMonitor.toLowerCase() === 'yes' || shouldMonitor.toLowerCase() === 'y') {
+	if (['yes', 'y'].includes(shouldMonitor.toLowerCase())) {
 		console.log('Monitoring for transactions... (This will check every 10 seconds. Press Ctrl+C to stop)');
 
 		// Monitor for completed transaction
@@ -196,7 +197,7 @@ async function main() {
 			} catch (error) {
 				console.error('Error monitoring transactions:', error);
 			}
-		}, 10000); // Check every 10 seconds
+		}, 5000); // Check every 5 seconds
 
 		// Handle Ctrl+C gracefully
 		process.on('SIGINT', () => {

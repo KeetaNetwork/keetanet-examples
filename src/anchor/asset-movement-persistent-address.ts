@@ -27,6 +27,7 @@ async function main() {
 
 	// Create Asset Movement Client to handle cross-chain transfers
 	const assetMovementClient = new KeetaAnchor.AssetMovement.Client(userClient, {
+		// default anchor root resolver address, can be customized to connect to a specific anchor
 		root: userClient.networkAddress,
 		...logger
 	});
