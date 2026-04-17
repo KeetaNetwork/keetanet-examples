@@ -112,34 +112,36 @@ async function main() {
 	const persistentAddress = persistentAddressResponse;
 
 	// Display the forwarding address
-	console.log('========================================');
-	console.log(' YOUR BASE SEPOLIA FORWARDING ADDRESS ');
-	console.log('========================================');
-	console.log(`Address: ${persistentAddress.address}`);
-	console.log(`This address will automatically forward USDC received on Base Sepolia`);
-	console.log(`to your Keeta account: ${persistentAddress.destinationAddress}`);
-	console.log('========================================\n');
+	console.log(`
+========================================
+ YOUR BASE SEPOLIA FORWARDING ADDRESS
+========================================
+Persistent Address: ${persistentAddress.address}
+This address will automatically forward USDC received on Base Sepolia
+to your Keeta account: ${userAccount.publicKeyString.get()}
+========================================
 
-	console.log('HOW TO GET TEST USDC:');
-	console.log('----------------------------------------');
-	console.log('1. Visit Circle\'s Testnet Faucet:');
-	console.log('   https://faucet.circle.com/');
-	console.log('');
-	console.log('2. Select "Base Sepolia" from the network dropdown');
-	console.log('');
-	console.log('3. Select "USDC" as the token');
-	console.log('');
-	console.log('4. Enter your forwarding address:');
-	console.log(`   ${persistentAddress.address}`);
-	console.log('');
-	console.log('5. Request test USDC (usually 20 USDC per request)');
-	console.log('----------------------------------------');
+HOW TO GET TEST USDC:
+----------------------------------------
+1. Visit Circle's Testnet Faucet:
+   https://faucet.circle.com/
+
+2. Select "Base Sepolia" from the network dropdown
+
+3. Select "USDC" as the token
+
+4. Enter your forwarding address:
+   ${persistentAddress.address}
+
+5. Request test USDC (usually 20 USDC per request)
+----------------------------------------
+`);
 
 	// Wait for user confirmation before monitoring transactions
 	const shouldMonitor = await promptUser('Would you like to monitor for incoming transactions? (yes/no): ');
 
 	if (['yes', 'y'].includes(shouldMonitor.toLowerCase())) {
-		console.log('Monitoring for transactions... (This will check every 10 seconds. Press Ctrl+C to stop)');
+		console.log('Monitoring for transactions... (This will check every 5 seconds. Press Ctrl+C to stop)');
 
 		// Monitor for completed transaction
 		const monitoringInterval = setInterval(async () => {
@@ -169,20 +171,21 @@ async function main() {
 				}
 
 				if (tx.status !== 'COMPLETE') {
-					console.log(`Current Status: ${tx.status}. Waiting for it to complete...`);
 					return;
 				}
 
-				console.log(`Completed transaction detected!`);
-				console.log(`  ID: ${tx.id}`);
-				console.log(`  Status: ${tx.status}`);
-				console.log(`  Asset: ${tx.asset}`);
-				console.log(`  From: ${tx.from.location}`);
-				console.log(`  From Value: ${tx.from.value}`);
-				console.log(`  To: ${tx.to.location}`);
-				console.log(`  To Value: ${tx.to.value}`);
-				console.log(`  Created: ${tx.createdAt}`);
-				console.log(`  Updated: ${tx.updatedAt}`);
+				console.log(`\n
+Completed transaction detected!
+ ID: ${tx.id}
+ Status: ${tx.status}
+ Asset: ${tx.asset}
+ From: ${tx.from.location}
+ From Value: ${tx.from.value}
+ To: ${tx.to.location}
+ To Value: ${tx.to.value}
+ Created: ${tx.createdAt}
+ Updated: ${tx.updatedAt}
+`);
 
 				// Check final Keeta balances
 				const balances = await userClient.allBalances();

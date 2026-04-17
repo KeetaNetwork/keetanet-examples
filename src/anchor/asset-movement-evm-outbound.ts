@@ -34,12 +34,13 @@ const KEETA_USDC_ASSET = 'keeta_apna75yhhvnv4ei7ape55hndk4yepno7a7i2mhtiwahiygix
 const USDC_DECIMALS = 6;
 
 async function main() {
-	console.log('Keeta Asset Movement Example: Keeta => Base Sepolia USDC');
-	console.log('=========================================================');
-
-	console.log('IMPORTANT: Before running this example:');
-	console.log('1. Run asset-movement-evm-inbound.ts to receive USDC tokens on Keeta Test Network');
-	console.log('2. Ensure you have sufficient USDC balance on Keeta to send\n');
+	console.log(`
+Keeta Asset Movement Example: Keeta => Base Sepolia USDC
+=========================================================
+IMPORTANT: Before running this example:
+1. Run asset-movement-evm-inbound.ts to receive USDC tokens on Keeta Test Network
+2. Ensure you have sufficient USDC balance on Keeta to send
+`);
 
 	// Prompt for Keeta seed
 	const seed = await promptUser('Enter your Keeta SEED (or press Enter for new random seed): ');
@@ -206,14 +207,16 @@ async function main() {
 			console.log(`\n[${elapsed}s] Status: ${txn.status}`);
 
 			if (txn.status === 'COMPLETE') {
-				console.log('\n========================================');
-				console.log('  TRANSFER COMPLETED SUCCESSFULLY! ');
-				console.log('========================================');
-				console.log(`Transfer ID: ${initiateResponse.transferId}`);
-				console.log(`Amount: ${formatDecimals(amountToSend, USDC_DECIMALS)} USDC`);
-				console.log(`From: Keeta Test Network`);
-				console.log(`To: Base Sepolia (${baseRecipientAddress})`);
-				console.log('========================================\n');
+				console.log(`
+========================================
+  TRANSFER COMPLETED SUCCESSFULLY!
+========================================
+Transfer ID: ${initiateResponse.transferId}
+Amount: ${formatDecimals(amountToSend, USDC_DECIMALS)} USDC
+From: Keeta Test Network
+To: Base Sepolia (${baseRecipientAddress})
+========================================
+`);
 
 				// Check final Keeta balance
 				const finalBalance = await userClient.client.getBalance(userAccount, usdcTokenAccount);
