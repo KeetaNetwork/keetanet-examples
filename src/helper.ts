@@ -2,6 +2,7 @@ import * as KeetaNet from '@keetanetwork/keetanet-client';
 import type { Account, GenericAccount, TokenAddress } from '@keetanetwork/keetanet-client/lib/account.js';
 import type { Networks } from '@keetanetwork/keetanet-client/config/index.js';
 import type { JSONSerializable } from '@keetanetwork/keetanet-client/lib/utils/conversion.js';
+import * as readline from 'readline';
 
 const debugPrintableObject: (input: unknown) => JSONSerializable = KeetaNet.lib.Utils.Helper.debugPrintableObject.bind(KeetaNet.lib.Utils.Helper);
 
@@ -105,6 +106,27 @@ export async function getFaucetTokens(acct: Account | string, network: Networks)
 	});
 
 	return(balanceResult);
+}
+
+/**
+ * Helper function to prompt user for input
+ * @param question the question to ask the user
+ * @returns the user's response
+ */
+export async function promptUser(question: string): Promise<string> {
+	const rl = readline.createInterface({
+		input: process.stdin,
+		output: process.stdout
+	});
+
+	const response = await new Promise<string>((resolve) => {
+		rl.question(question, (answer) => {
+			rl.close();
+			resolve(answer);
+		});
+	});
+
+	return(response);
 }
 
 export {
