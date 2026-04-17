@@ -31,7 +31,6 @@ const network = 'test';
  */
 const BASE_SEPOLIA_CHAIN_ID = 84532n;
 const KEETA_USDC_ASSET = 'keeta_apna75yhhvnv4ei7ape55hndk4yepno7a7i2mhtiwahiygixjcnmvswxhnmnk';
-const KEETA_TESTNET_NETWORK_ID = 0x54455354n;  // Keeta testnet network ID
 
 /**
  * Helper function to format USDC amount (6 decimals) to a readable string
@@ -133,7 +132,7 @@ async function main() {
 			type: 'chain',
 			chain: {
 				type: 'keeta',
-				networkId: KEETA_TESTNET_NETWORK_ID
+				networkId: userClient.network
 			}
 		},
 		// Destination: Base Sepolia (EVM chain with chain ID 84532)
@@ -166,7 +165,7 @@ async function main() {
 				type: 'chain',
 				chain: {
 					type: 'keeta',
-					networkId: KEETA_TESTNET_NETWORK_ID
+					networkId: userClient.network
 				}
 			}
 		},
