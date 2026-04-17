@@ -18,8 +18,8 @@
 		"make:help": "make help"
 	},
 	"dependencies": {
-		"@keetanetwork/anchor": "0.0.12",
-		"@keetanetwork/keetanet-client": "0.14.8",
+		"@keetanetwork/anchor": "0.0.53",
+		"@keetanetwork/keetanet-client": "0.16.1",
 		"tsx": "4.20.3"
 	},
 	"devDependencies": {
