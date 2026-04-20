@@ -61,9 +61,9 @@ async function main() {
 		// Token we want to send
 		from: userClient.baseToken.publicKeyString.get(),
 		// Token we want to receive
-		to: '$USDC',
+		to: 'USD',
 		// Amount to exchange. Token is determined from `affinity`
-		amount: 1 * 10 ** baseTokenDecimals, // 1 KTA
+		amount: BigInt(1 * 10 ** baseTokenDecimals), // 1 KTA
 		// Direction of the exchange and what the amount should apply too
 		affinity: 'from'
 	});

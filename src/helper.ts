@@ -2,6 +2,7 @@ import * as KeetaNet from '@keetanetwork/keetanet-client';
 import type { Account, GenericAccount, TokenAddress } from '@keetanetwork/keetanet-client/lib/account.js';
 import type { Networks } from '@keetanetwork/keetanet-client/config/index.js';
 import type { JSONSerializable } from '@keetanetwork/keetanet-client/lib/utils/conversion.js';
+import * as readline from 'readline';
 
 const debugPrintableObject: (input: unknown) => JSONSerializable = KeetaNet.lib.Utils.Helper.debugPrintableObject.bind(KeetaNet.lib.Utils.Helper);
 
@@ -105,6 +106,44 @@ export async function getFaucetTokens(acct: Account | string, network: Networks)
 	});
 
 	return(balanceResult);
+}
+
+/**
+ * Helper function to prompt user for input
+ * @param question the question to ask the user
+ * @returns the user's response
+ */
+export async function promptUser(question: string): Promise<string> {
+	const rl = readline.createInterface({
+		input: process.stdin,
+		output: process.stdout
+	});
+
+	const response = await new Promise<string>((resolve) => {
+		rl.question(question, (answer) => {
+			rl.close();
+			resolve(answer);
+		});
+	});
+
+	return(response);
+}
+
+/**
+ * Helper function to format token amount decimals to a readable string
+ * Safely handles bigint values without overflow
+ */
+export function formatDecimals(amount: bigint, decimals: number): string {
+	const wholePart = amount / BigInt(10 ** decimals);
+	const decimalPart = amount % BigInt(10 ** decimals);
+
+	// Format with specified decimal places, then remove trailing zeros
+	const decimalStr = decimalPart.toString().padStart(decimals, '0').replace(/0+$/, '');
+
+	if (decimalStr === '') {
+		return(wholePart.toString());
+	}
+	return(`${wholePart}.${decimalStr}`);
 }
 
 export {
