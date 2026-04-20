@@ -16,12 +16,7 @@ async function main() {
 	const recipient = KeetaNet.lib.Account.fromSeed(seed2, 0);
 
 	// Create sensitive data
-	const privateData = {
-		documentType: 'passport',
-		documentNumber: 'X1234567',
-		fullName: 'Alice Smith',
-		dateOfBirth: '1990-01-01'
-	};
+	const privateData = 'sensitive information that only the recipient should see';
 
 	const plaintext = Buffer.from(JSON.stringify(privateData), 'utf-8');
 
