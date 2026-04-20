@@ -5,7 +5,7 @@
  *
  * This example demonstrates:
  * 1. Initiating an outbound transfer from Keeta to Base Sepolia
- * 2. Constructing a block with external field data for the bridge recipient
+ * 2. Constructing a block with external field data for the anchor account
  * 3. Publishing the transaction using UserClient
  * 4. Monitoring the transfer status
  *
@@ -168,7 +168,7 @@ IMPORTANT: Before running this example:
 	console.log(`\nTransfer initiated with ID: ${initiateResponse.transferId}`);
 	console.log('Instructions:', util.inspect(DPO(initiateResponse.instructions), { depth: 4, colors: true }));
 
-	// Get the bridge holding account from the instructions
+	// Get the anchor account from the instructions
 	const instruction = initiateResponse.instructions[0];
 	if (!instruction || instruction.type !== 'KEETA_SEND') {
 		throw(new Error('Expected KEETA_SEND instruction not found'));
