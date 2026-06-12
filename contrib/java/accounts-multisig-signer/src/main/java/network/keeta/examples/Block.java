@@ -8,7 +8,9 @@ import java.nio.ByteOrder;
 /**
  * Block builder for creating and signing Keetanet blocks
  * 
- * Provides a fluent API for constructing blocks, similar to the TypeScript Block.Builder
+ * Provides a fluent API for constructing blocks, similar to the TypeScript
+ * Block.Builder. Signing uses the private keys held by the accounts placed
+ * in the block's signer field, so no signatures cross the JNI boundary.
  */
 public class Block {
     
@@ -50,7 +52,7 @@ public class Block {
                 throw new RuntimeException("Failed to set account");
             }
             
-            // Set previous hash or opening hash
+            // Set previous hash, or mark as the account opening block
             if (previousHash != null) {
                 if (previousHash.length != 32) {
                     throw new IllegalArgumentException("Previous hash must be 32 bytes");
@@ -66,10 +68,31 @@ public class Block {
         }
         
         /**
-         * Set the signer for this block (for multisig scenarios)
+         * Set a single-account signer for this block.
+         * Defaults to the block account if never called.
          * 
-         * @param multisig Multisig account
-         * @param signers Array of signer accounts
+         * @param signer Signing account (must hold a private key)
+         * @return this builder
+         */
+        public Builder signer(Account signer) {
+            if (closed) {
+                throw new IllegalStateException("Builder has been closed");
+            }
+
+            this.builderPtr = KeetaNetJNI.blockBuilderSetSigner(this.builderPtr, signer.getNativePtr());
+            if (this.builderPtr == 0) {
+                throw new RuntimeException("Failed to set signer");
+            }
+
+            return this;
+        }
+
+        /**
+         * Set a multisig signer for this block: the multisig address plus
+         * the member accounts producing signatures (may be a quorum subset).
+         *
+         * @param multisig Multisig identifier account
+         * @param signers Member accounts that will sign (must hold private keys)
          * @return this builder
          */
         public Builder signer(Account multisig, Account[] signers) {
@@ -77,17 +100,15 @@ public class Block {
                 throw new IllegalStateException("Builder has been closed");
             }
             
-            // Convert signer pointers to byte array
-            ByteBuffer buffer = ByteBuffer.allocate(signers.length * 8);
-            buffer.order(ByteOrder.nativeOrder());
-            for (Account signer : signers) {
-                buffer.putLong(signer.getNativePtr());
+            long[] signerPtrs = new long[signers.length];
+            for (int i = 0; i < signers.length; i++) {
+                signerPtrs[i] = signers[i].getNativePtr();
             }
             
             this.builderPtr = KeetaNetJNI.blockBuilderSetMultisigSigner(
                 this.builderPtr,
                 multisig.getNativePtr(),
-                buffer.array()
+                signerPtrs
             );
             
             if (this.builderPtr == 0) {
@@ -100,15 +121,15 @@ public class Block {
         /**
          * Add an operation to the block
          * 
-         * @param operationDer DER-encoded operation bytes
+         * @param operation Operation handle (see Account operation helpers)
          * @return this builder
          */
-        public Builder addOperation(byte[] operationDer) {
+        public Builder addOperation(Operation operation) {
             if (closed) {
                 throw new IllegalStateException("Builder has been closed");
             }
             
-            this.builderPtr = KeetaNetJNI.blockBuilderAddOperation(this.builderPtr, operationDer);
+            this.builderPtr = KeetaNetJNI.blockBuilderAddOperation(this.builderPtr, operation.getNativePtr());
             if (this.builderPtr == 0) {
                 throw new RuntimeException("Failed to add operation");
             }
@@ -117,7 +138,8 @@ public class Block {
         }
         
         /**
-         * Build and seal the block (creates unsigned block ready for signing)
+         * Build, validate and seal the block (creates an unsigned block
+         * ready for signing). Consumes this builder.
          * 
          * @return UnsignedBlock ready for signing
          */
@@ -127,11 +149,13 @@ public class Block {
             }
             
             long unsignedPtr = KeetaNetJNI.blockBuilderBuild(this.builderPtr);
+            closed = true;
+            builderPtr = 0;
+
             if (unsignedPtr == 0) {
-                throw new RuntimeException("Failed to build block");
+                throw new RuntimeException("Failed to build block (validation failed?)");
             }
             
-            closed = true;
             return new UnsignedBlock(unsignedPtr);
         }
         
@@ -157,7 +181,7 @@ public class Block {
         }
         
         /**
-         * Get the block hash that needs to be signed
+         * Get the block hash that the signers sign
          * 
          * @return 32-byte block hash
          */
@@ -173,9 +197,10 @@ public class Block {
         }
         
         /**
-         * Get the list of required signers (flattened from multisig tree)
+         * Get the list of required signers (flattened from the multisig
+         * signer tree, in signature order)
          * 
-         * @return List of public keys that need to sign
+         * @return List of public keys (with key-type prefix) that must sign
          */
         public List<byte[]> getRequiredSigners() {
             if (freed) {
@@ -201,78 +226,25 @@ public class Block {
         }
         
         /**
-         * Sign the block with a single account
+         * Sign the block with the private keys held by its required signer
+         * accounts (set via the builder's account/signer methods) and seal
+         * it. The signatures are also verified during sealing. Consumes
+         * this unsigned block.
          * 
-         * @param account Account to sign with
          * @return SignedBlock
          */
-        public SignedBlock sign(Account account) {
+        public SignedBlock sign() {
             if (freed) {
                 throw new IllegalStateException("Block has been freed");
             }
             
-            byte[] hash = hash();
-            byte[] signature = KeetaNetJNI.unsignedBlockSign(unsignedPtr, account.getNativePtr(), hash);
-            
-            if (signature == null || signature.length != 64) {
-                throw new RuntimeException("Failed to sign block (expected 64-byte signature)");
-            }
-            
-            // Package single signature
-            ByteBuffer sigBuffer = ByteBuffer.allocate(4 + signature.length);
-            sigBuffer.order(ByteOrder.BIG_ENDIAN);
-            sigBuffer.putInt(1); // count
-            sigBuffer.put(signature);
-            
-            long signedPtr = KeetaNetJNI.unsignedBlockSeal(unsignedPtr, sigBuffer.array());
-            if (signedPtr == 0) {
-                throw new RuntimeException("Failed to seal block");
-            }
-            
+            long signedPtr = KeetaNetJNI.unsignedBlockSign(unsignedPtr);
             freed = true;
             unsignedPtr = 0;
             
-            return new SignedBlock(signedPtr);
-        }
-        
-        /**
-         * Sign the block with multiple accounts (for multisig)
-         * 
-         * @param accounts Array of accounts to sign with (must match required signers)
-         * @return SignedBlock
-         */
-        public SignedBlock signMultisig(Account[] accounts) {
-            if (freed) {
-                throw new IllegalStateException("Block has been freed");
-            }
-            
-            byte[] hash = hash();
-            List<byte[]> signatures = new ArrayList<>();
-            
-            // Collect signatures from each account
-            for (Account account : accounts) {
-                byte[] sig = KeetaNetJNI.unsignedBlockSign(unsignedPtr, account.getNativePtr(), hash);
-                if (sig == null || sig.length != 64) {
-                    throw new RuntimeException("Failed to sign block with account (expected 64-byte signature)");
-                }
-                signatures.add(sig);
-            }
-            
-            // Package signatures: count (4 bytes) + signature1 (64) + signature2 (64) + ...
-            ByteBuffer sigBuffer = ByteBuffer.allocate(4 + signatures.size() * 64);
-            sigBuffer.order(ByteOrder.BIG_ENDIAN);
-            sigBuffer.putInt(signatures.size());
-            for (byte[] sig : signatures) {
-                sigBuffer.put(sig);
-            }
-            
-            long signedPtr = KeetaNetJNI.unsignedBlockSeal(unsignedPtr, sigBuffer.array());
             if (signedPtr == 0) {
-                throw new RuntimeException("Failed to seal block with multisig");
+                throw new RuntimeException("Failed to sign block");
             }
-            
-            freed = true;
-            unsignedPtr = 0;
             
             return new SignedBlock(signedPtr);
         }

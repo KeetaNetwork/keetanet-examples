@@ -14,9 +14,13 @@ public class KeetaNetJNI {
     public static native long[] getPermissionConstants();
     public static native String generateRandomSeed();
     public static native long accountFromSeed(String seedHex, int index, int keyType);
+    public static native long accountFromPublicKeyString(String publicKeyString);
     public static native String getAccountPublicKey(long accountPtr);
-    public static native long generateMultisigIdentifier(long accountPtr, int operationIndex);
-    public static native long generateTokenIdentifier(long accountPtr, int operationIndex);
+    public static native byte[] getAccountPublicKeyAndType(long accountPtr);
+    public static native boolean accountHasPrivateKey(long accountPtr);
+    public static native boolean accountIsIdentifier(long accountPtr);
+    // blockHash may be null to derive against the account opening hash
+    public static native long generateIdentifier(long accountPtr, int identifierType, byte[] blockHash, int operationIndex);
     public static native void freeAccount(long accountPtr);
     public static native int getAccountType(long accountPtr);
 
@@ -24,8 +28,8 @@ public class KeetaNetJNI {
     public static native byte[] signMessage(long accountPtr, byte[] message);
     public static native int verifySignature(long accountPtr, byte[] message, byte[] signature);
     
-    // Block operations
-    public static native byte[] createMultisigOperation(
+    // Block operations — each returns an Operation handle (see Operation.java)
+    public static native long createMultisigOperation(
         long multisigPtr,
         long signer1Ptr,
         long signer2Ptr,
@@ -33,18 +37,20 @@ public class KeetaNetJNI {
         int quorum
     );
     
-    public static native byte[] createModifyPermissionsOperation(
+    public static native long createModifyPermissionsOperation(
         long principalPtr,
         long permissionsBits,
         int adjustMethod
     );
 
-    public static native byte[] createSetInfoOperation(
+    public static native long createSetInfoOperation(
         String name,
         String description,
         String metadata,
-        long accessPermissionBase
+        long defaultPermissionBits
     );
+
+    public static native void freeOperation(long operationPtr);
     
     // Block builder methods
     public static native long createBlockBuilder();
@@ -52,17 +58,18 @@ public class KeetaNetJNI {
     public static native long blockBuilderSetNetwork(long builderPtr, long network);
     public static native long blockBuilderSetAccount(long builderPtr, long accountPtr);
     public static native long blockBuilderSetSigner(long builderPtr, long signerPtr);
-    public static native long blockBuilderSetMultisigSigner(long builderPtr, long multisigPtr, byte[] signerPtrs);
+    public static native long blockBuilderSetMultisigSigner(long builderPtr, long multisigPtr, long[] signerPtrs);
     public static native long blockBuilderSetPrevious(long builderPtr, byte[] previousHash);
     public static native long blockBuilderSetNoPrevious(long builderPtr);
-    public static native long blockBuilderAddOperation(long builderPtr, byte[] operationDer);
+    public static native long blockBuilderAddOperation(long builderPtr, long operationPtr);
     public static native long blockBuilderBuild(long builderPtr);
     
     // Unsigned block methods
     public static native byte[] unsignedBlockGetHash(long unsignedPtr);
     public static native byte[] unsignedBlockGetSigners(long unsignedPtr);
-    public static native byte[] unsignedBlockSign(long unsignedPtr, long accountPtr, byte[] blockHash);
-    public static native long unsignedBlockSeal(long unsignedPtr, byte[] signatures);
+    // Signs with the private keys held by the block's required signer
+    // accounts and seals the block. Consumes the unsigned block handle.
+    public static native long unsignedBlockSign(long unsignedPtr);
     
     // Signed block methods
     public static native byte[] signedBlockGetHash(long signedPtr);

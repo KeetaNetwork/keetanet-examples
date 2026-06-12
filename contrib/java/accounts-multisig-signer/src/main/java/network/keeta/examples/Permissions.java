@@ -1,11 +1,11 @@
 package network.keeta.examples;
 
 /**
- * Permission bit constants sourced from the Rust keetanetwork_block::permissions module via JNI.
- * Matches the base permission flags defined in keetanetwork-block/src/permissions.rs.
+ * Permission bit masks (1 << BaseFlag) sourced from the Rust
+ * keetanetwork_block::BaseFlag enum via JNI.
  */
 public final class Permissions {
-    // Base permission bits — loaded from Rust at class initialisation time.
+    // Base permission bit masks — loaded from Rust at class initialisation time.
     // Order matches getPermissionConstants():
     //   [ACCESS, OWNER, ADMIN, UPDATE_INFO, SEND_ON_BEHALF,
     //    TOKEN_CREATE, TOKEN_SUPPLY, TOKEN_BALANCE,

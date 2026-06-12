@@ -16,8 +16,7 @@ keetanetwork-account = { path = "../../../../node-rs/keetanetwork-account" }
 keetanetwork-crypto = { path = "../../../../node-rs/keetanetwork-crypto" }
 keetanetwork-block = { path = "../../../../node-rs/keetanetwork-block" }
 hex = "0.4"
-der = { version = "0.7", features = ["derive"] }
-zeroize = { version = "1.8", features = ["derive"] }
+num-bigint = "0.4"
 
 [profile.release]
 opt-level = 3

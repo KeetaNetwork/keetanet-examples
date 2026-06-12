@@ -31,27 +31,42 @@ public class AccountsMultisigSigner {
             
             // Step 2: Create user account from seed (index 0, ED25519 algorithm)
             System.out.println("Step 2: Creating user account from seed...");
-            try (Account userAccount = Account.fromSeed(seed, 0, Account.ED25519)) {
-                System.out.println("User Account: " + userAccount.getPublicKey());
-                System.out.println("Account Type: " + getAccountTypeName(userAccount.getAccountType()));
+            try (Account userAccount = Account.fromSeed(seed, 0, Account.AccountKeyAlgorithm.ED25519)) {
+                System.out.println("User Account: " + userAccount.publicKeyString());
+                System.out.println("Account Type: " + userAccount.keyType());
+                System.out.println("Has private key: " + userAccount.hasPrivateKey());
+
+                // Round-trip through the public key string — the parsed account
+                // carries only the public key, so it can verify but not sign.
+                try (Account parsed = Account.fromPublicKeyString(userAccount.publicKeyString())) {
+                    if (!userAccount.comparePublicKey(parsed)) {
+                        throw new RuntimeException("Public key string round-trip mismatch");
+                    }
+                    if (parsed.hasPrivateKey()) {
+                        throw new RuntimeException("Parsed account unexpectedly has a private key");
+                    }
+                    System.out.println("Public key string round-trip: OK (parsed account is public-key only)");
+                }
                 System.out.println();
                 
                 // Step 3: Generate 3 signer accounts (indices 1, 2, 3)
                 System.out.println("Step 3: Creating signer accounts...");
-                try (Account signer1 = Account.fromSeed(seed, 1, Account.ED25519);
-                     Account signer2 = Account.fromSeed(seed, 2, Account.ED25519);
-                     Account signer3 = Account.fromSeed(seed, 3, Account.ED25519)) {
+                try (Account signer1 = Account.fromSeed(seed, 1, Account.AccountKeyAlgorithm.ED25519);
+                     Account signer2 = Account.fromSeed(seed, 2, Account.AccountKeyAlgorithm.ED25519);
+                     Account signer3 = Account.fromSeed(seed, 3, Account.AccountKeyAlgorithm.ED25519)) {
                     
-                    System.out.println("Signer 1: " + signer1.getPublicKey());
-                    System.out.println("Signer 2: " + signer2.getPublicKey());
-                    System.out.println("Signer 3: " + signer3.getPublicKey());
+                    System.out.println("Signer 1: " + signer1.publicKeyString());
+                    System.out.println("Signer 2: " + signer2.publicKeyString());
+                    System.out.println("Signer 3: " + signer3.publicKeyString());
                     System.out.println();
                     
                     // Step 4: Generate a multisig identifier
                     System.out.println("Step 4: Generating multisig identifier...");
-                    try (Account multisigIdentifier = userAccount.generateMultisigIdentifier(0)) {
-                        System.out.println("Multisig Identifier: " + multisigIdentifier.getPublicKey());
-                        System.out.println("Account Type: " + getAccountTypeName(multisigIdentifier.getAccountType()));
+                    try (Account multisigIdentifier = userAccount.generateIdentifier(Account.AccountKeyAlgorithm.MULTISIG, null, 0)) {
+                        System.out.println("Multisig Identifier: " + multisigIdentifier.publicKeyString());
+                        System.out.println("Account Type: " + multisigIdentifier.keyType());
+                        System.out.println("Is identifier: " + multisigIdentifier.isIdentifier());
+                        multisigIdentifier.assertIdentifier();
                         System.out.println();
                         
                         // Step 5: Demonstrate cryptographic signing
@@ -67,11 +82,11 @@ public class AccountsMultisigSigner {
                         // Step 7: Summary
                         System.out.println("Step 7: Summary");
                         System.out.println("================");
-                        System.out.println("User Account:        " + userAccount.getPublicKey());
-                        System.out.println("Multisig Identifier: " + multisigIdentifier.getPublicKey());
-                        System.out.println("Signer 1:            " + signer1.getPublicKey());
-                        System.out.println("Signer 2:            " + signer2.getPublicKey());
-                        System.out.println("Signer 3:            " + signer3.getPublicKey());
+                        System.out.println("User Account:        " + userAccount.publicKeyString());
+                        System.out.println("Multisig Identifier: " + multisigIdentifier.publicKeyString());
+                        System.out.println("Signer 1:            " + signer1.publicKeyString());
+                        System.out.println("Signer 2:            " + signer2.publicKeyString());
+                        System.out.println("Signer 3:            " + signer3.publicKeyString());
                         System.out.println();
 
                         System.out.println("✓ Successfully demonstrated:");
@@ -152,25 +167,26 @@ public class AccountsMultisigSigner {
         // Opening block for userAccount.
         // Creates the multisig identifier and grants it ADMIN on userAccount.
         // previous=NO_PREVIOUS so the identifier is derived from the account opening hash,
-        // which matches userAccount.generateMultisigIdentifier(0).
+        // which matches userAccount.generateIdentifier(Account.AccountKeyAlgorithm.MULTISIG, null, 0).
         System.out.println("=== Block 1: identifierBlock (userAccount opening block) ===");
 
         byte[] identifierBlockHash;
-        try (Block.Builder builder = new Block.Builder(NETWORK_TEST, userAccount, null)) {
-            // op[0]: CREATE_IDENTIFIER for the multisig (quorum=2, signers=signer1,signer2,signer3)
-            byte[] createIdOp = multisig.createMultisigOperation(signer1, signer2, signer3, 2);
+        try (Block.Builder builder = new Block.Builder(NETWORK_TEST, userAccount, null);
+             // op[0]: CREATE_IDENTIFIER for the multisig (quorum=2, signers=signer1,signer2,signer3)
+             Operation createIdOp = Operation.createMultisigIdentifier(multisig, signer1, signer2, signer3, 2);
+             // op[1]: MODIFY_PERMISSIONS — grant ADMIN to multisig on userAccount
+             // ACCESS is always implicitly included with any permission grant
+             Operation modifyOp = Operation.modifyPermissions(multisig, Permissions.ADMIN | Permissions.ACCESS, 2 /* SET */)) {
             builder.addOperation(createIdOp);
-
-            // op[1]: MODIFY_PERMISSIONS — grant ADMIN to multisig on userAccount
-            // ACCESS is always implicitly included with any permission grant
-            byte[] modifyOp = Account.createModifyPermissionsOperation(multisig, Permissions.ADMIN | Permissions.ACCESS, 2 /* SET */);
             builder.addOperation(modifyOp);
 
             try (Block.UnsignedBlock unsigned = builder.seal()) {
                 identifierBlockHash = unsigned.hash();
                 System.out.println("  identifierBlock hash: " + bytesToHexFull(identifierBlockHash));
 
-                try (Block.SignedBlock signed = unsigned.sign(userAccount)) {
+                // The signer defaults to the block account (userAccount),
+                // whose private key signs and seals the block.
+                try (Block.SignedBlock signed = unsigned.sign()) {
                     byte[] blockBytes = signed.toBytes();
                     System.out.println("  Serialized size: " + blockBytes.length + " bytes");
                     System.out.println("  Block bytes (hex): " + bytesToHexFull(blockBytes));
@@ -183,8 +199,8 @@ public class AccountsMultisigSigner {
         // --- customToken ---
         // Mirrors userClient.generateIdentifier(TOKEN): a TOKEN identifier derived from
         // userAccount with NO_PREVIOUS (operation index 0).
-        try (Account customToken = userAccount.generateTokenIdentifier(0)) {
-            System.out.println("  Custom Token: " + customToken.getPublicKey());
+        try (Account customToken = userAccount.generateIdentifier(Account.AccountKeyAlgorithm.TOKEN, null, 0)) {
+            System.out.println("  Custom Token: " + customToken.publicKeyString());
             System.out.println();
 
             // --- Block 2: multisigExampleBlock ---
@@ -195,17 +211,16 @@ public class AccountsMultisigSigner {
             String basicMetadata = java.util.Base64.getEncoder().encodeToString(
                 "{\"decimalPlaces\":6}".getBytes(StandardCharsets.UTF_8));
 
-            try (Block.Builder builder = new Block.Builder(NETWORK_TEST, customToken, null)) {
+            try (Block.Builder builder = new Block.Builder(NETWORK_TEST, customToken, null);
+                 // SET_INFO: name, description, metadata, defaultPermission=ACCESS
+                 Operation setInfoOp = Operation.setInfo(
+                     "TKNM",
+                     "Test Multisig Token Example",
+                     basicMetadata,
+                     Permissions.ACCESS
+                 )) {
                 // signer = [multisig, [signer1, signer2]] — only 2 of 3 signers (the quorum)
                 builder.signer(multisig, new Account[]{signer1, signer2});
-
-                // SET_INFO: name, description, metadata, defaultPermission=ACCESS
-                byte[] setInfoOp = Account.createSetInfoOperation(
-                    "TKNM",
-                    "Test Multisig Token Example",
-                    basicMetadata,
-                    Permissions.ACCESS
-                );
                 builder.addOperation(setInfoOp);
 
                 try (Block.UnsignedBlock unsigned = builder.seal()) {
@@ -218,8 +233,9 @@ public class AccountsMultisigSigner {
                         System.out.println("    Signer " + (i + 1) + ": " + bytesToHex(requiredSigners.get(i)));
                     }
 
-                    // Sign with signer1 and signer2 only (quorum=2)
-                    try (Block.SignedBlock signed = unsigned.signMultisig(new Account[]{signer1, signer2})) {
+                    // signer1 and signer2 hold private keys, so sign() can
+                    // produce both required signatures (quorum=2)
+                    try (Block.SignedBlock signed = unsigned.sign()) {
                         System.out.println("  Signed block hash: " + signed.getHashHex());
                         byte[] blockBytes = signed.toBytes();
                         System.out.println("  Serialized size: " + blockBytes.length + " bytes");
@@ -233,16 +249,6 @@ public class AccountsMultisigSigner {
         System.out.println("✓ Block building demonstration complete!");
     }
 
-    private static String getAccountTypeName(int type) {
-        if (type == Account.ECDSA_SECP256K1) return "ECDSA_SECP256K1";
-        if (type == Account.ED25519)         return "ED25519";
-        if (type == Account.NETWORK)         return "NETWORK";
-        if (type == Account.TOKEN)           return "TOKEN";
-        if (type == Account.STORAGE)         return "STORAGE";
-        if (type == Account.ECDSA_SECP256R1) return "ECDSA_SECP256R1";
-        if (type == Account.MULTISIG)        return "MULTISIG";
-        return "UNKNOWN";
-    }
 
     private static String bytesToHex(byte[] bytes) {
         StringBuilder sb = new StringBuilder();
