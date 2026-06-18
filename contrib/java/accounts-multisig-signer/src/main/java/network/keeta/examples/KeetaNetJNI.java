@@ -66,6 +66,7 @@ public class KeetaNetJNI {
     
     // Unsigned block methods
     public static native byte[] unsignedBlockGetHash(long unsignedPtr);
+    public static native String unsignedBlockGetHashString(long unsignedPtr);
     public static native byte[] unsignedBlockGetSigners(long unsignedPtr);
     // Signs with the private keys held by the block's required signer
     // accounts and seals the block. Consumes the unsigned block handle.
@@ -73,7 +74,25 @@ public class KeetaNetJNI {
     
     // Signed block methods
     public static native byte[] signedBlockGetHash(long signedPtr);
+    public static native String signedBlockGetHashString(long signedPtr);
     public static native byte[] signedBlockToBytes(long signedPtr);
+
+    // User client methods (network transmission)
+    public static native long userClientFromNetwork(String networkName, long signerPtr);
+    public static native long userClientGetBaseToken(long clientPtr);
+    public static native String userClientGetBalance(long clientPtr, long accountPtr, long tokenPtr);
+    public static native byte[] userClientHead(long clientPtr);
+    public static native byte[] userClientHeadForAccount(long clientPtr, long accountPtr);
+    public static native boolean userClientTransmit(long clientPtr, long[] signedBlockPtrs);
+    public static native long userClientGenerateIdentifier(long clientPtr, int keyType);
+    public static native boolean userClientUpdatePermissions(
+        long clientPtr,
+        long principalPtr,
+        long permissionsBits,
+        int adjustMethod,
+        long targetPtr
+    );
+    public static native void freeUserClient(long clientPtr);
     
     // Memory management
     public static native void freeBlockBuilder(long builderPtr);

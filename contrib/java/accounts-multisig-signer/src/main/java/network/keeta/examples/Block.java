@@ -195,6 +195,21 @@ public class Block {
             }
             return hash;
         }
+
+        /**
+         * Get the block hash as the canonical uppercase hex string produced by
+         * the Rust {@code BlockHash} formatter.
+         */
+        public String getHashHex() {
+            if (freed) {
+                throw new IllegalStateException("Block has been freed");
+            }
+            String hash = KeetaNetJNI.unsignedBlockGetHashString(unsignedPtr);
+            if (hash == null) {
+                throw new RuntimeException("Failed to compute block hash");
+            }
+            return hash;
+        }
         
         /**
          * Get the list of required signers (flattened from the multisig
@@ -292,12 +307,14 @@ public class Block {
          * @return Uppercase hex string
          */
         public String getHashHex() {
-            byte[] hash = hash();
-            StringBuilder sb = new StringBuilder();
-            for (byte b : hash) {
-                sb.append(String.format("%02X", b));
+            if (freed) {
+                throw new IllegalStateException("Block has been freed");
             }
-            return sb.toString();
+            String hash = KeetaNetJNI.signedBlockGetHashString(signedPtr);
+            if (hash == null) {
+                throw new RuntimeException("Failed to compute block hash");
+            }
+            return hash;
         }
         
         /**
@@ -314,6 +331,13 @@ public class Block {
                 throw new RuntimeException("Failed to serialize block");
             }
             return bytes;
+        }
+
+        long getNativePtr() {
+            if (freed) {
+                throw new IllegalStateException("Block has been freed");
+            }
+            return signedPtr;
         }
         
         @Override

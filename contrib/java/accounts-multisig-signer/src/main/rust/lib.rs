@@ -14,17 +14,20 @@ use jni::JNIEnv;
 use std::ptr;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::sync::OnceLock;
 
 use keetanetwork_account::account::AccountSigner;
-use keetanetwork_account::{Account, Accountable, GenericAccount, KeyPairType, Keyable};
+use keetanetwork_account::{Account, Accountable, GenericAccount, KeyNETWORK, KeyPairType, Keyable};
 use keetanetwork_block::{
 	AccountRef, AdjustMethod, Block, BlockBuilder, BlockHash, BlockVersion, CreateIdentifier, Hashable,
 	IdentifierCreateArguments, ModifyPermissions, ModifyPermissionsPrincipal, MultisigCreateArguments, Operation,
 	Permissions, SetInfo, Signer, UnsignedBlock,
 };
 use keetanetwork_block::BaseFlag;
+use keetanetwork_client::{Network, TransmitOptions, UserClient};
 use keetanetwork_crypto::prelude::*;
 use num_bigint::BigInt;
+use tokio::runtime::{Builder as TokioRuntimeBuilder, Runtime as TokioRuntime};
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -121,6 +124,29 @@ unsafe fn account_ref(ptr: jlong) -> &'static AccountRef {
 
 fn account_to_handle(account: GenericAccount) -> jlong {
 	Box::into_raw(Box::new(Arc::new(account))) as jlong
+}
+
+fn account_ref_to_handle(account: AccountRef) -> jlong {
+	Box::into_raw(Box::new(account)) as jlong
+}
+
+struct UserClientHandle {
+	client: UserClient,
+	network: Network,
+}
+
+unsafe fn user_client_ref(ptr: jlong) -> &'static UserClientHandle {
+	&*(ptr as *const UserClientHandle)
+}
+
+fn runtime() -> &'static TokioRuntime {
+	static RUNTIME: OnceLock<TokioRuntime> = OnceLock::new();
+	RUNTIME.get_or_init(|| {
+		TokioRuntimeBuilder::new_multi_thread()
+			.enable_all()
+			.build()
+			.expect("failed to initialize tokio runtime")
+	})
 }
 
 #[no_mangle]
@@ -389,6 +415,284 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_freeAccount(
 	if account_ptr != 0 {
 		unsafe {
 			let _ = Box::from_raw(account_ptr as *mut AccountRef);
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// User client (network transmission)
+// ---------------------------------------------------------------------------
+
+fn derive_base_token(network: Network) -> Option<AccountRef> {
+	let id = u64::try_from(network.id()).ok()?;
+	let network_account = Account::<KeyNETWORK>::generate_network_address(id).ok()?;
+	let token = network_account.generate_identifier(KeyPairType::TOKEN, None, 0).ok()?;
+	Some(Arc::new(token))
+}
+
+#[no_mangle]
+pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_userClientFromNetwork(
+	mut env: JNIEnv,
+	_class: JClass,
+	network_name: JString,
+	signer_ptr: jlong,
+) -> jlong {
+	let network_name: String = match env.get_string(&network_name) {
+		Ok(s) => s.into(),
+		Err(_) => return 0,
+	};
+	let network = match Network::from_str(&network_name) {
+		Ok(network) => network,
+		Err(err) => {
+			eprintln!("{err:?}");
+			return 0;
+		}
+	};
+
+	let signer = if signer_ptr == 0 {
+		None
+	} else {
+		Some(unsafe { account_ref(signer_ptr) }.clone())
+	};
+
+	let client = match UserClient::from_network(network, signer) {
+		Ok(client) => client,
+		Err(err) => {
+			eprintln!("{err:?}");
+			return 0;
+		}
+	};
+
+	Box::into_raw(Box::new(UserClientHandle { client, network })) as jlong
+}
+
+#[no_mangle]
+pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_userClientGetBaseToken(
+	_env: JNIEnv,
+	_class: JClass,
+	client_ptr: jlong,
+) -> jlong {
+	if client_ptr == 0 {
+		return 0;
+	}
+	let handle = unsafe { user_client_ref(client_ptr) };
+	match derive_base_token(handle.network) {
+		Some(token) => account_ref_to_handle(token),
+		None => 0,
+	}
+}
+
+#[no_mangle]
+pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_userClientGetBalance(
+	env: JNIEnv,
+	_class: JClass,
+	client_ptr: jlong,
+	account_ptr: jlong,
+	token_ptr: jlong,
+) -> jstring {
+	if client_ptr == 0 || account_ptr == 0 || token_ptr == 0 {
+		return ptr::null_mut();
+	}
+
+	let handle = unsafe { user_client_ref(client_ptr) };
+	let account = unsafe { account_ref(account_ptr) };
+	let token = unsafe { account_ref(token_ptr) };
+
+	let result = runtime().block_on(async {
+		handle
+			.client
+			.client()
+			.balance(account.to_string(), token.to_string())
+			.await
+	});
+
+	match result {
+		Ok(balance) => match env.new_string(balance.to_string()) {
+			Ok(jstr) => jstr.into_raw(),
+			Err(_) => ptr::null_mut(),
+		},
+		Err(err) => {
+			eprintln!("{err:?}");
+			ptr::null_mut()
+		}
+	}
+}
+
+#[no_mangle]
+pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_userClientHead<'local>(
+	env: JNIEnv<'local>,
+	_class: JClass,
+	client_ptr: jlong,
+) -> JByteArray<'local> {
+	if client_ptr == 0 {
+		return JByteArray::default();
+	}
+
+	let handle = unsafe { user_client_ref(client_ptr) };
+	let result = runtime().block_on(async { handle.client.head().await });
+	match result {
+		Ok(Some(block)) => env.byte_array_from_slice(block.hash().as_bytes()).unwrap_or_default(),
+		Ok(None) => JByteArray::default(),
+		Err(err) => {
+			eprintln!("{err:?}");
+			JByteArray::default()
+		}
+	}
+}
+
+#[no_mangle]
+pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_userClientHeadForAccount<'local>(
+	env: JNIEnv<'local>,
+	_class: JClass,
+	client_ptr: jlong,
+	account_ptr: jlong,
+) -> JByteArray<'local> {
+	if client_ptr == 0 || account_ptr == 0 {
+		return JByteArray::default();
+	}
+
+	let handle = unsafe { user_client_ref(client_ptr) };
+	let account = unsafe { account_ref(account_ptr) };
+	let result = runtime().block_on(async { handle.client.client().head_block(account.to_string()).await });
+
+	match result {
+		Ok(Some(block)) => env.byte_array_from_slice(block.hash().as_bytes()).unwrap_or_default(),
+		Ok(None) => JByteArray::default(),
+		Err(err) => {
+			eprintln!("{err:?}");
+			JByteArray::default()
+		}
+	}
+}
+
+#[no_mangle]
+pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_userClientTransmit(
+	env: JNIEnv,
+	_class: JClass,
+	client_ptr: jlong,
+	block_ptrs: JLongArray,
+) -> jboolean {
+	if client_ptr == 0 {
+		return 0;
+	}
+
+	let count = match env.get_array_length(&block_ptrs) {
+		Ok(v) => v as usize,
+		Err(_) => return 0,
+	};
+
+	let mut ptrs = vec![0i64; count];
+	if env.get_long_array_region(&block_ptrs, 0, &mut ptrs).is_err() {
+		return 0;
+	}
+
+	let mut blocks = Vec::with_capacity(count);
+	for ptr in ptrs {
+		if ptr == 0 {
+			return 0;
+		}
+		blocks.push(unsafe { &*(ptr as *const Block) }.clone());
+	}
+
+	let handle = unsafe { user_client_ref(client_ptr) };
+	match runtime().block_on(async { handle.client.transmit(&blocks, TransmitOptions::default()).await }) {
+		Ok(ok) => ok as jboolean,
+		Err(err) => {
+			eprintln!("{err:?}");
+			0
+		}
+	}
+}
+
+#[no_mangle]
+pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_userClientGenerateIdentifier(
+	_env: JNIEnv,
+	_class: JClass,
+	client_ptr: jlong,
+	key_type: jint,
+) -> jlong {
+	if client_ptr == 0 {
+		return 0;
+	}
+
+	let key_type = match key_type {
+		t if t == KeyPairType::NETWORK as jint => KeyPairType::NETWORK,
+		t if t == KeyPairType::TOKEN as jint => KeyPairType::TOKEN,
+		t if t == KeyPairType::STORAGE as jint => KeyPairType::STORAGE,
+		t if t == KeyPairType::MULTISIG as jint => KeyPairType::MULTISIG,
+		_ => return 0,
+	};
+
+	let handle = unsafe { user_client_ref(client_ptr) };
+	match runtime().block_on(async { handle.client.generate_identifier(key_type, None).await }) {
+		Ok(identifier) => account_ref_to_handle(identifier),
+		Err(err) => {
+			eprintln!("{err:?}");
+			0
+		}
+	}
+}
+
+#[no_mangle]
+pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_userClientUpdatePermissions(
+	_env: JNIEnv,
+	_class: JClass,
+	client_ptr: jlong,
+	principal_ptr: jlong,
+	permissions_bits: jlong,
+	adjust_method: jint,
+	target_ptr: jlong,
+) -> jboolean {
+	if client_ptr == 0 || principal_ptr == 0 {
+		return 0;
+	}
+
+	let method = match adjust_method {
+		0 => AdjustMethod::Add,
+		1 => AdjustMethod::Subtract,
+		2 => AdjustMethod::Set,
+		_ => return 0,
+	};
+	let permissions = match permissions_from_bits(permissions_bits) {
+		Ok(permissions) => permissions,
+		Err(err) => {
+			eprintln!("{err:?}");
+			return 0;
+		}
+	};
+
+	let principal = unsafe { account_ref(principal_ptr) };
+	let target = if target_ptr == 0 {
+		None
+	} else {
+		Some(unsafe { account_ref(target_ptr) }.clone())
+	};
+	let payload = ModifyPermissions {
+		principal: ModifyPermissionsPrincipal::Account(principal.clone()),
+		method,
+		permissions: Some(permissions),
+		target,
+	};
+
+	let handle = unsafe { user_client_ref(client_ptr) };
+	match runtime().block_on(async { handle.client.update_permissions(payload).await }) {
+		Ok(ok) => ok as jboolean,
+		Err(err) => {
+			eprintln!("{err:?}");
+			0
+		}
+	}
+}
+
+#[no_mangle]
+pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_freeUserClient(
+	_env: JNIEnv,
+	_class: JClass,
+	client_ptr: jlong,
+) {
+	if client_ptr != 0 {
+		unsafe {
+			let _ = Box::from_raw(client_ptr as *mut UserClientHandle);
 		}
 	}
 }
@@ -724,6 +1028,23 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_unsignedBlockGetH
 	env.byte_array_from_slice(unsigned.hash().as_bytes()).unwrap_or_default()
 }
 
+#[no_mangle]
+pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_unsignedBlockGetHashString(
+	env: JNIEnv,
+	_class: JClass,
+	unsigned_ptr: jlong,
+) -> jstring {
+	if unsigned_ptr == 0 {
+		return ptr::null_mut();
+	}
+
+	let unsigned = unsafe { &*(unsigned_ptr as *const UnsignedBlock) };
+	match env.new_string(unsigned.hash().to_string()) {
+		Ok(jstr) => jstr.into_raw(),
+		Err(_) => ptr::null_mut(),
+	}
+}
+
 /// Returns required signer public keys (with key-type prefix) serialized as:
 /// count (u32 BE) + (length (u32 BE) + pubkey bytes) * count
 #[no_mangle]
@@ -802,6 +1123,23 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_signedBlockGetHas
 
 	let block = unsafe { &*(signed_ptr as *const Block) };
 	env.byte_array_from_slice(block.hash().as_bytes()).unwrap_or_default()
+}
+
+#[no_mangle]
+pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_signedBlockGetHashString(
+	env: JNIEnv,
+	_class: JClass,
+	signed_ptr: jlong,
+) -> jstring {
+	if signed_ptr == 0 {
+		return ptr::null_mut();
+	}
+
+	let block = unsafe { &*(signed_ptr as *const Block) };
+	match env.new_string(block.hash().to_string()) {
+		Ok(jstr) => jstr.into_raw(),
+		Err(_) => ptr::null_mut(),
+	}
 }
 
 /// The signed ASN.1/DER bytes as transmitted on the network.

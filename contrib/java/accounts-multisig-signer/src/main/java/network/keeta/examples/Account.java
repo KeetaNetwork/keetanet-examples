@@ -78,6 +78,13 @@ public class Account implements AutoCloseable {
         this.nativePtr = ptr;
     }
 
+    static Account fromNativePtr(long ptr) {
+        if (ptr == 0) {
+            throw new RuntimeException("Native account handle is null");
+        }
+        return new Account(ptr);
+    }
+
     /* ------------------------------------------------------------------ *
      * Static constructors                                                 *
      * ------------------------------------------------------------------ */
@@ -94,7 +101,7 @@ public class Account implements AutoCloseable {
         if (ptr == 0) {
             throw new RuntimeException("Failed to parse public key string: " + publicKeyString);
         }
-        return new Account(ptr);
+        return fromNativePtr(ptr);
     }
 
     /**
@@ -105,7 +112,7 @@ public class Account implements AutoCloseable {
         if (ptr == 0) {
             throw new RuntimeException("Failed to create account from seed");
         }
-        return new Account(ptr);
+        return fromNativePtr(ptr);
     }
 
     /**
