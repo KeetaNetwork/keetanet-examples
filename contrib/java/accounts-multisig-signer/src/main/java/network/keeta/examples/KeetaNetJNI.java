@@ -17,6 +17,7 @@ public class KeetaNetJNI {
     public static native long accountFromPublicKeyString(String publicKeyString);
     public static native String getAccountPublicKey(long accountPtr);
     public static native byte[] getAccountPublicKeyAndType(long accountPtr);
+    public static native String getAccountPublicKeyAndTypeString(long accountPtr);
     public static native boolean accountHasPrivateKey(long accountPtr);
     public static native boolean accountIsIdentifier(long accountPtr);
     // blockHash may be null to derive against the account opening hash

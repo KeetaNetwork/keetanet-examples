@@ -28,6 +28,7 @@ use keetanetwork_client::{Network, TransmitOptions, UserClient};
 use keetanetwork_crypto::prelude::*;
 use num_bigint::BigInt;
 use tokio::runtime::{Builder as TokioRuntimeBuilder, Runtime as TokioRuntime};
+use hex::ToHex;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -376,6 +377,23 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_getAccountPublicK
 	let bytes = account.to_public_key_with_type();
 	match env.byte_array_from_slice(&bytes) {
 		Ok(arr) => arr.into_raw(),
+		Err(_) => ptr::null_mut(),
+	}
+}
+
+/// Get the account's typed public key as a `0x`-prefixed canonical hex string.
+#[no_mangle]
+pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_getAccountPublicKeyAndTypeString(
+	env: JNIEnv,
+	_class: JClass,
+	account_ptr: jlong,
+) -> jstring {
+	let Some(account) = account_ref(account_ptr) else {
+		return ptr::null_mut();
+	};
+	let value = format!("0x{}", account.encode_hex::<String>());
+	match env.new_string(value) {
+		Ok(jstr) => jstr.into_raw(),
 		Err(_) => ptr::null_mut(),
 	}
 }

@@ -264,13 +264,11 @@ public class Account implements AutoCloseable {
      * Get {@link #publicKeyAndType()} as a {@code 0x}-prefixed hex string.
      */
     public String publicKeyAndTypeString() {
-        byte[] keyData = publicKeyAndType();
-        StringBuilder sb = new StringBuilder(2 + keyData.length * 2);
-        sb.append("0x");
-        for (byte b : keyData) {
-            sb.append(String.format("%02x", b));
+        String keyData = KeetaNetJNI.getAccountPublicKeyAndTypeString(getNativePtr());
+        if (keyData == null) {
+            throw new RuntimeException("Failed to get account public key and type string");
         }
-        return sb.toString();
+        return keyData;
     }
 
     /**
