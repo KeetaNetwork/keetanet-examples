@@ -11,10 +11,10 @@
 use jni::objects::{JByteArray, JClass, JLongArray, JString};
 use jni::sys::{jboolean, jbyteArray, jint, jlong, jlongArray, jstring};
 use jni::JNIEnv;
+use std::collections::HashSet;
 use std::ptr;
 use std::str::FromStr;
-use std::sync::Arc;
-use std::sync::OnceLock;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use keetanetwork_account::account::AccountSigner;
 use keetanetwork_account::{Account, Accountable, GenericAccount, KeyNETWORK, KeyPairType, Keyable};
@@ -117,26 +117,130 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_generateRandomSee
 	}
 }
 
-/// Borrow an account handle.
-unsafe fn account_ref(ptr: jlong) -> &'static AccountRef {
-	&*(ptr as *const AccountRef)
-}
-
-fn account_to_handle(account: GenericAccount) -> jlong {
-	Box::into_raw(Box::new(Arc::new(account))) as jlong
-}
-
-fn account_ref_to_handle(account: AccountRef) -> jlong {
-	Box::into_raw(Box::new(account)) as jlong
-}
-
 struct UserClientHandle {
 	client: UserClient,
 	network: Network,
 }
 
-unsafe fn user_client_ref(ptr: jlong) -> &'static UserClientHandle {
-	&*(ptr as *const UserClientHandle)
+#[derive(Default)]
+struct HandleRegistry {
+	accounts: HashSet<jlong>,
+	user_clients: HashSet<jlong>,
+	operations: HashSet<jlong>,
+	builders: HashSet<jlong>,
+	unsigned_blocks: HashSet<jlong>,
+	signed_blocks: HashSet<jlong>,
+}
+
+fn registry() -> &'static Mutex<HandleRegistry> {
+	static REGISTRY: OnceLock<Mutex<HandleRegistry>> = OnceLock::new();
+	REGISTRY.get_or_init(|| Mutex::new(HandleRegistry::default()))
+}
+
+fn with_registry<R>(f: impl FnOnce(&mut HandleRegistry) -> R) -> R {
+	let mut guard = registry().lock().expect("handle registry mutex poisoned");
+	f(&mut guard)
+}
+
+fn register_account_handle(ptr: jlong) {
+	with_registry(|r| {
+		r.accounts.insert(ptr);
+	});
+}
+fn unregister_account_handle(ptr: jlong) -> bool {
+	with_registry(|r| r.accounts.remove(&ptr))
+}
+fn is_live_account_handle(ptr: jlong) -> bool {
+	with_registry(|r| r.accounts.contains(&ptr))
+}
+
+fn register_user_client_handle(ptr: jlong) {
+	with_registry(|r| {
+		r.user_clients.insert(ptr);
+	});
+}
+fn unregister_user_client_handle(ptr: jlong) -> bool {
+	with_registry(|r| r.user_clients.remove(&ptr))
+}
+fn is_live_user_client_handle(ptr: jlong) -> bool {
+	with_registry(|r| r.user_clients.contains(&ptr))
+}
+
+fn register_operation_handle(ptr: jlong) {
+	with_registry(|r| {
+		r.operations.insert(ptr);
+	});
+}
+fn unregister_operation_handle(ptr: jlong) -> bool {
+	with_registry(|r| r.operations.remove(&ptr))
+}
+fn is_live_operation_handle(ptr: jlong) -> bool {
+	with_registry(|r| r.operations.contains(&ptr))
+}
+
+fn register_builder_handle(ptr: jlong) {
+	with_registry(|r| {
+		r.builders.insert(ptr);
+	});
+}
+fn unregister_builder_handle(ptr: jlong) -> bool {
+	with_registry(|r| r.builders.remove(&ptr))
+}
+
+fn register_unsigned_handle(ptr: jlong) {
+	with_registry(|r| {
+		r.unsigned_blocks.insert(ptr);
+	});
+}
+fn unregister_unsigned_handle(ptr: jlong) -> bool {
+	with_registry(|r| r.unsigned_blocks.remove(&ptr))
+}
+fn is_live_unsigned_handle(ptr: jlong) -> bool {
+	with_registry(|r| r.unsigned_blocks.contains(&ptr))
+}
+
+fn register_signed_handle(ptr: jlong) {
+	with_registry(|r| {
+		r.signed_blocks.insert(ptr);
+	});
+}
+fn unregister_signed_handle(ptr: jlong) -> bool {
+	with_registry(|r| r.signed_blocks.remove(&ptr))
+}
+fn is_live_signed_handle(ptr: jlong) -> bool {
+	with_registry(|r| r.signed_blocks.contains(&ptr))
+}
+
+fn account_ref(ptr: jlong) -> Option<&'static AccountRef> {
+	if ptr == 0 || !is_live_account_handle(ptr) {
+		return None;
+	}
+	// SAFETY: `ptr` is non-zero and currently registered as a live account
+	// handle, meaning it was created by `Box::into_raw` in this module and has
+	// not yet been consumed/freed.
+	Some(unsafe { &*(ptr as *const AccountRef) })
+}
+
+fn user_client_ref(ptr: jlong) -> Option<&'static UserClientHandle> {
+	if ptr == 0 || !is_live_user_client_handle(ptr) {
+		return None;
+	}
+	// SAFETY: `ptr` is non-zero and currently registered as a live user-client
+	// handle, so it points to an allocation created by this module that has not
+	// been consumed/freed yet.
+	Some(unsafe { &*(ptr as *const UserClientHandle) })
+}
+
+fn account_to_handle(account: GenericAccount) -> jlong {
+	let ptr = Box::into_raw(Box::new(Arc::new(account))) as jlong;
+	register_account_handle(ptr);
+	ptr
+}
+
+fn account_ref_to_handle(account: AccountRef) -> jlong {
+	let ptr = Box::into_raw(Box::new(account)) as jlong;
+	register_account_handle(ptr);
+	ptr
 }
 
 fn runtime() -> &'static TokioRuntime {
@@ -228,7 +332,9 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_getAccountPublicK
 		return ptr::null_mut();
 	}
 
-	let account = unsafe { account_ref(account_ptr) };
+	let Some(account) = account_ref(account_ptr) else {
+		return ptr::null_mut();
+	};
 	// Display renders the `keeta_`-prefixed address
 	match env.new_string(account.to_string()) {
 		Ok(jstr) => jstr.into_raw(),
@@ -246,7 +352,10 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_getAccountType(
 		return -1;
 	}
 
-	unsafe { account_ref(account_ptr) }.to_keypair_type() as jint
+	match account_ref(account_ptr) {
+		Some(account) => account.to_keypair_type() as jint,
+		None => -1,
+	}
 }
 
 /// Get the account's raw public key with its type prefix byte
@@ -261,7 +370,10 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_getAccountPublicK
 		return ptr::null_mut();
 	}
 
-	let bytes = unsafe { account_ref(account_ptr) }.to_public_key_with_type();
+	let Some(account) = account_ref(account_ptr) else {
+		return ptr::null_mut();
+	};
+	let bytes = account.to_public_key_with_type();
 	match env.byte_array_from_slice(&bytes) {
 		Ok(arr) => arr.into_raw(),
 		Err(_) => ptr::null_mut(),
@@ -279,7 +391,10 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_accountHasPrivate
 	}
 
 	// Identifier accounts (NETWORK/TOKEN/STORAGE/MULTISIG) never carry keys
-	let has_private_key = match unsafe { account_ref(account_ptr) }.as_ref() {
+	let Some(account) = account_ref(account_ptr) else {
+		return 0;
+	};
+	let has_private_key = match account.as_ref() {
 		GenericAccount::EcdsaSecp256k1(account) => account.has_private_key(),
 		GenericAccount::EcdsaSecp256r1(account) => account.has_private_key(),
 		GenericAccount::Ed25519(account) => account.has_private_key(),
@@ -298,7 +413,10 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_accountIsIdentifi
 		return 0;
 	}
 
-	unsafe { account_ref(account_ptr) }.to_keypair_type().is_identifier() as jboolean
+	match account_ref(account_ptr) {
+		Some(account) => account.to_keypair_type().is_identifier() as jboolean,
+		None => 0,
+	}
 }
 
 /// Derive an identifier account (NETWORK/TOKEN/STORAGE/MULTISIG) relative to
@@ -343,7 +461,9 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_generateIdentifie
 		}
 	};
 
-	let account = unsafe { account_ref(account_ptr) };
+	let Some(account) = account_ref(account_ptr) else {
+		return 0;
+	};
 	match account.generate_identifier(identifier_type, hash.as_ref(), operation_index as u32) {
 		Ok(identifier) => account_to_handle(identifier),
 		Err(err) => {
@@ -364,7 +484,9 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_signMessage<'loca
 		return JByteArray::default();
 	}
 
-	let account = unsafe { account_ref(account_ptr) };
+	let Some(account) = account_ref(account_ptr) else {
+		return JByteArray::default();
+	};
 	let message_bytes = match env.convert_byte_array(&message) {
 		Ok(bytes) => bytes,
 		Err(_) => return JByteArray::default(),
@@ -388,7 +510,9 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_verifySignature(
 		return 0;
 	}
 
-	let account = unsafe { account_ref(account_ptr) };
+	let Some(account) = account_ref(account_ptr) else {
+		return 0;
+	};
 	let message_bytes = match env.convert_byte_array(&message) {
 		Ok(bytes) => bytes,
 		Err(_) => return 0,
@@ -419,7 +543,9 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_freeAccount(
 	_class: JClass,
 	account_ptr: jlong,
 ) {
-	if account_ptr != 0 {
+	if account_ptr != 0 && unregister_account_handle(account_ptr) {
+		// SAFETY: handle was present in the live-account registry and is removed
+		// before reconstruction, so this is the unique `Box::from_raw` for it.
 		unsafe {
 			let _ = Box::from_raw(account_ptr as *mut AccountRef);
 		}
@@ -459,7 +585,10 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_userClientFromNet
 	let signer = if signer_ptr == 0 {
 		None
 	} else {
-		Some(unsafe { account_ref(signer_ptr) }.clone())
+		match account_ref(signer_ptr) {
+			Some(signer) => Some(signer.clone()),
+			None => return 0,
+		}
 	};
 
 	let client = match UserClient::from_network(network, signer) {
@@ -470,7 +599,9 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_userClientFromNet
 		}
 	};
 
-	Box::into_raw(Box::new(UserClientHandle { client, network })) as jlong
+	let ptr = Box::into_raw(Box::new(UserClientHandle { client, network })) as jlong;
+	register_user_client_handle(ptr);
+	ptr
 }
 
 #[no_mangle]
@@ -482,7 +613,9 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_userClientGetBase
 	if client_ptr == 0 {
 		return 0;
 	}
-	let handle = unsafe { user_client_ref(client_ptr) };
+	let Some(handle) = user_client_ref(client_ptr) else {
+		return 0;
+	};
 	match derive_base_token(handle.network) {
 		Some(token) => account_ref_to_handle(token),
 		None => 0,
@@ -501,9 +634,15 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_userClientGetBala
 		return ptr::null_mut();
 	}
 
-	let handle = unsafe { user_client_ref(client_ptr) };
-	let account = unsafe { account_ref(account_ptr) };
-	let token = unsafe { account_ref(token_ptr) };
+	let Some(handle) = user_client_ref(client_ptr) else {
+		return ptr::null_mut();
+	};
+	let Some(account) = account_ref(account_ptr) else {
+		return ptr::null_mut();
+	};
+	let Some(token) = account_ref(token_ptr) else {
+		return ptr::null_mut();
+	};
 
 	let result = runtime().block_on(async {
 		handle
@@ -535,7 +674,9 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_userClientHead<'l
 		return JByteArray::default();
 	}
 
-	let handle = unsafe { user_client_ref(client_ptr) };
+	let Some(handle) = user_client_ref(client_ptr) else {
+		return JByteArray::default();
+	};
 	let result = runtime().block_on(async { handle.client.head().await });
 	match result {
 		Ok(Some(block)) => env.byte_array_from_slice(block.hash().as_bytes()).unwrap_or_default(),
@@ -558,8 +699,12 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_userClientHeadFor
 		return JByteArray::default();
 	}
 
-	let handle = unsafe { user_client_ref(client_ptr) };
-	let account = unsafe { account_ref(account_ptr) };
+	let Some(handle) = user_client_ref(client_ptr) else {
+		return JByteArray::default();
+	};
+	let Some(account) = account_ref(account_ptr) else {
+		return JByteArray::default();
+	};
 	let result = runtime().block_on(async { handle.client.client().head_block(account.to_string()).await });
 
 	match result {
@@ -598,10 +743,16 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_userClientTransmi
 		if ptr == 0 {
 			return 0;
 		}
+		if !is_live_signed_handle(ptr) {
+			return 0;
+		}
+		// SAFETY: handle liveness was verified against the signed-block registry.
 		blocks.push(unsafe { &*(ptr as *const Block) }.clone());
 	}
 
-	let handle = unsafe { user_client_ref(client_ptr) };
+	let Some(handle) = user_client_ref(client_ptr) else {
+		return 0;
+	};
 	match runtime().block_on(async { handle.client.transmit(&blocks, TransmitOptions::default()).await }) {
 		Ok(ok) => ok as jboolean,
 		Err(err) => {
@@ -630,7 +781,9 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_userClientGenerat
 		_ => return 0,
 	};
 
-	let handle = unsafe { user_client_ref(client_ptr) };
+	let Some(handle) = user_client_ref(client_ptr) else {
+		return 0;
+	};
 	match runtime().block_on(async { handle.client.generate_identifier(key_type, None).await }) {
 		Ok(identifier) => account_ref_to_handle(identifier),
 		Err(err) => {
@@ -668,11 +821,16 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_userClientUpdateP
 		}
 	};
 
-	let principal = unsafe { account_ref(principal_ptr) };
+	let Some(principal) = account_ref(principal_ptr) else {
+		return 0;
+	};
 	let target = if target_ptr == 0 {
 		None
 	} else {
-		Some(unsafe { account_ref(target_ptr) }.clone())
+		match account_ref(target_ptr) {
+			Some(target) => Some(target.clone()),
+			None => return 0,
+		}
 	};
 	let payload = ModifyPermissions {
 		principal: ModifyPermissionsPrincipal::Account(principal.clone()),
@@ -681,7 +839,9 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_userClientUpdateP
 		target,
 	};
 
-	let handle = unsafe { user_client_ref(client_ptr) };
+	let Some(handle) = user_client_ref(client_ptr) else {
+		return 0;
+	};
 	match runtime().block_on(async { handle.client.update_permissions(payload).await }) {
 		Ok(ok) => ok as jboolean,
 		Err(err) => {
@@ -697,7 +857,9 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_freeUserClient(
 	_class: JClass,
 	client_ptr: jlong,
 ) {
-	if client_ptr != 0 {
+	if client_ptr != 0 && unregister_user_client_handle(client_ptr) {
+		// SAFETY: handle was removed from the live-user-client registry, so this
+		// is the unique reconstruction/free for this allocation.
 		unsafe {
 			let _ = Box::from_raw(client_ptr as *mut UserClientHandle);
 		}
@@ -731,11 +893,17 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_createMultisigOpe
 		return 0;
 	}
 
-	let multisig = unsafe { account_ref(multisig_ptr) };
+	let Some(multisig) = account_ref(multisig_ptr) else {
+		return 0;
+	};
 	let signers: Vec<AccountRef> = [signer1_ptr, signer2_ptr, signer3_ptr]
 		.iter()
-		.map(|ptr| unsafe { account_ref(*ptr) }.clone())
-		.collect();
+		.map(|ptr| account_ref(*ptr).cloned())
+		.collect::<Option<Vec<_>>>()
+		.unwrap_or_default();
+	if signers.len() != 3 {
+		return 0;
+	}
 
 	let operation: Operation = CreateIdentifier {
 		identifier: multisig.clone(),
@@ -746,7 +914,9 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_createMultisigOpe
 	}
 	.into();
 
-	Box::into_raw(Box::new(operation)) as jlong
+	let ptr = Box::into_raw(Box::new(operation)) as jlong;
+	register_operation_handle(ptr);
+	ptr
 }
 
 /// Build a MODIFY_PERMISSIONS operation. Returns an `Operation` handle.
@@ -762,7 +932,9 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_createModifyPermi
 		return 0;
 	}
 
-	let principal = unsafe { account_ref(principal_ptr) };
+	let Some(principal) = account_ref(principal_ptr) else {
+		return 0;
+	};
 
 	let method = match adjust_method {
 		0 => AdjustMethod::Add,
@@ -784,7 +956,9 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_createModifyPermi
 	}
 	.into();
 
-	Box::into_raw(Box::new(operation)) as jlong
+	let ptr = Box::into_raw(Box::new(operation)) as jlong;
+	register_operation_handle(ptr);
+	ptr
 }
 
 /// Build a SET_INFO operation. Returns an `Operation` handle.
@@ -813,7 +987,9 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_createSetInfoOper
 
 	let operation: Operation = SetInfo { name, description, metadata, default_permission }.into();
 
-	Box::into_raw(Box::new(operation)) as jlong
+	let ptr = Box::into_raw(Box::new(operation)) as jlong;
+	register_operation_handle(ptr);
+	ptr
 }
 
 #[no_mangle]
@@ -822,7 +998,9 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_freeOperation(
 	_class: JClass,
 	operation_ptr: jlong,
 ) {
-	if operation_ptr != 0 {
+	if operation_ptr != 0 && unregister_operation_handle(operation_ptr) {
+		// SAFETY: handle was removed from live-operation registry; this is the
+		// unique reconstruction/free for this allocation.
 		unsafe {
 			let _ = Box::from_raw(operation_ptr as *mut Operation);
 		}
@@ -836,13 +1014,19 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_freeOperation(
 /// Apply a consuming `BlockBuilder` method to a raw handle, returning a new
 /// handle (the old handle is always consumed).
 fn rebox_builder(builder_ptr: jlong, apply: impl FnOnce(BlockBuilder) -> Option<BlockBuilder>) -> jlong {
-	if builder_ptr == 0 {
+	if builder_ptr == 0 || !unregister_builder_handle(builder_ptr) {
 		return 0;
 	}
 
+	// SAFETY: handle was removed from live-builder registry above, so this is
+	// the unique reconstruction/consumption of that allocation.
 	let builder = unsafe { Box::from_raw(builder_ptr as *mut BlockBuilder) };
 	match apply(*builder) {
-		Some(builder) => Box::into_raw(Box::new(builder)) as jlong,
+		Some(builder) => {
+			let ptr = Box::into_raw(Box::new(builder)) as jlong;
+			register_builder_handle(ptr);
+			ptr
+		}
 		None => 0,
 	}
 }
@@ -852,7 +1036,9 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_createBlockBuilde
 	_env: JNIEnv,
 	_class: JClass,
 ) -> jlong {
-	Box::into_raw(Box::new(BlockBuilder::default())) as jlong
+	let ptr = Box::into_raw(Box::new(BlockBuilder::default())) as jlong;
+	register_builder_handle(ptr);
+	ptr
 }
 
 #[no_mangle]
@@ -892,7 +1078,9 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_blockBuilderSetAc
 	if account_ptr == 0 {
 		return rebox_builder(builder_ptr, |_| None);
 	}
-	let account = unsafe { account_ref(account_ptr) }.clone();
+	let Some(account) = account_ref(account_ptr).cloned() else {
+		return rebox_builder(builder_ptr, |_| None);
+	};
 	rebox_builder(builder_ptr, |builder| Some(builder.with_account(account)))
 }
 
@@ -906,7 +1094,9 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_blockBuilderSetSi
 	if signer_ptr == 0 {
 		return rebox_builder(builder_ptr, |_| None);
 	}
-	let signer = unsafe { account_ref(signer_ptr) }.clone();
+	let Some(signer) = account_ref(signer_ptr).cloned() else {
+		return rebox_builder(builder_ptr, |_| None);
+	};
 	rebox_builder(builder_ptr, |builder| Some(builder.with_signer(Signer::Single(signer))))
 }
 
@@ -933,14 +1123,17 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_blockBuilderSetMu
 			if ptr == 0 {
 				return None;
 			}
-			signers.push(Signer::Single(unsafe { account_ref(ptr) }.clone()));
+			let Some(signer) = account_ref(ptr).cloned() else {
+				return None;
+			};
+			signers.push(Signer::Single(signer));
 		}
 		Some(signers)
 	})();
 
 	rebox_builder(builder_ptr, |builder| {
 		let signers = signers?;
-		let address = unsafe { account_ref(multisig_ptr) }.clone();
+		let address = account_ref(multisig_ptr)?.clone();
 		Some(builder.with_signer(Signer::Multisig { address, signers }))
 	})
 }
@@ -981,6 +1174,10 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_blockBuilderAddOp
 		if operation_ptr == 0 {
 			return None;
 		}
+		if !is_live_operation_handle(operation_ptr) {
+			return None;
+		}
+		// SAFETY: liveness was validated against operation registry.
 		let operation = unsafe { &*(operation_ptr as *const Operation) };
 		Some(builder.with_operation(operation.clone()))
 	})
@@ -993,13 +1190,19 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_blockBuilderBuild
 	_class: JClass,
 	builder_ptr: jlong,
 ) -> jlong {
-	if builder_ptr == 0 {
+	if builder_ptr == 0 || !unregister_builder_handle(builder_ptr) {
 		return 0;
 	}
 
+	// SAFETY: handle was removed from live-builder registry above, so this is
+	// the unique reconstruction/consumption of that allocation.
 	let builder = unsafe { Box::from_raw(builder_ptr as *mut BlockBuilder) };
 	match builder.build() {
-		Ok(unsigned) => Box::into_raw(Box::new(unsigned)) as jlong,
+		Ok(unsigned) => {
+			let ptr = Box::into_raw(Box::new(unsigned)) as jlong;
+			register_unsigned_handle(ptr);
+			ptr
+		}
 		Err(err) => {
 			eprintln!("BlockBuilder::build failed: {err:?}");
 			0
@@ -1013,7 +1216,9 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_freeBlockBuilder(
 	_class: JClass,
 	builder_ptr: jlong,
 ) {
-	if builder_ptr != 0 {
+	if builder_ptr != 0 && unregister_builder_handle(builder_ptr) {
+		// SAFETY: handle was removed from live-builder registry, so this is the
+		// unique reconstruction/free for this allocation.
 		unsafe {
 			let _ = Box::from_raw(builder_ptr as *mut BlockBuilder);
 		}
@@ -1030,10 +1235,11 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_unsignedBlockGetH
 	_class: JClass,
 	unsigned_ptr: jlong,
 ) -> JByteArray<'local> {
-	if unsigned_ptr == 0 {
+	if unsigned_ptr == 0 || !is_live_unsigned_handle(unsigned_ptr) {
 		return JByteArray::default();
 	}
 
+	// SAFETY: liveness validated against unsigned-block registry.
 	let unsigned = unsafe { &*(unsigned_ptr as *const UnsignedBlock) };
 	env.byte_array_from_slice(unsigned.hash().as_bytes()).unwrap_or_default()
 }
@@ -1044,10 +1250,11 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_unsignedBlockGetH
 	_class: JClass,
 	unsigned_ptr: jlong,
 ) -> jstring {
-	if unsigned_ptr == 0 {
+	if unsigned_ptr == 0 || !is_live_unsigned_handle(unsigned_ptr) {
 		return ptr::null_mut();
 	}
 
+	// SAFETY: liveness validated against unsigned-block registry.
 	let unsigned = unsafe { &*(unsigned_ptr as *const UnsignedBlock) };
 	match env.new_string(unsigned.hash().to_string()) {
 		Ok(jstr) => jstr.into_raw(),
@@ -1063,10 +1270,11 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_unsignedBlockGetS
 	_class: JClass,
 	unsigned_ptr: jlong,
 ) -> JByteArray<'local> {
-	if unsigned_ptr == 0 {
+	if unsigned_ptr == 0 || !is_live_unsigned_handle(unsigned_ptr) {
 		return JByteArray::default();
 	}
 
+	// SAFETY: liveness validated against unsigned-block registry.
 	let unsigned = unsafe { &*(unsigned_ptr as *const UnsignedBlock) };
 	let signers = unsigned.required_signers();
 
@@ -1090,13 +1298,19 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_unsignedBlockSign
 	_class: JClass,
 	unsigned_ptr: jlong,
 ) -> jlong {
-	if unsigned_ptr == 0 {
+	if unsigned_ptr == 0 || !unregister_unsigned_handle(unsigned_ptr) {
 		return 0;
 	}
 
+	// SAFETY: handle was removed from unsigned-block registry above, so this is
+	// the unique reconstruction/consumption of this allocation.
 	let unsigned = unsafe { Box::from_raw(unsigned_ptr as *mut UnsignedBlock) };
 	match unsigned.sign() {
-		Ok(block) => Box::into_raw(Box::new(block)) as jlong,
+		Ok(block) => {
+			let ptr = Box::into_raw(Box::new(block)) as jlong;
+			register_signed_handle(ptr);
+			ptr
+		}
 		Err(err) => {
 			eprintln!("UnsignedBlock::sign failed: {err:?}");
 			0
@@ -1110,7 +1324,9 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_freeUnsignedBlock
 	_class: JClass,
 	unsigned_ptr: jlong,
 ) {
-	if unsigned_ptr != 0 {
+	if unsigned_ptr != 0 && unregister_unsigned_handle(unsigned_ptr) {
+		// SAFETY: handle was removed from unsigned-block registry, so this is
+		// the unique reconstruction/free for this allocation.
 		unsafe {
 			let _ = Box::from_raw(unsigned_ptr as *mut UnsignedBlock);
 		}
@@ -1127,10 +1343,11 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_signedBlockGetHas
 	_class: JClass,
 	signed_ptr: jlong,
 ) -> JByteArray<'local> {
-	if signed_ptr == 0 {
+	if signed_ptr == 0 || !is_live_signed_handle(signed_ptr) {
 		return JByteArray::default();
 	}
 
+	// SAFETY: liveness validated against signed-block registry.
 	let block = unsafe { &*(signed_ptr as *const Block) };
 	env.byte_array_from_slice(block.hash().as_bytes()).unwrap_or_default()
 }
@@ -1141,10 +1358,11 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_signedBlockGetHas
 	_class: JClass,
 	signed_ptr: jlong,
 ) -> jstring {
-	if signed_ptr == 0 {
+	if signed_ptr == 0 || !is_live_signed_handle(signed_ptr) {
 		return ptr::null_mut();
 	}
 
+	// SAFETY: liveness validated against signed-block registry.
 	let block = unsafe { &*(signed_ptr as *const Block) };
 	match env.new_string(block.hash().to_string()) {
 		Ok(jstr) => jstr.into_raw(),
@@ -1159,10 +1377,11 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_signedBlockToByte
 	_class: JClass,
 	signed_ptr: jlong,
 ) -> JByteArray<'local> {
-	if signed_ptr == 0 {
+	if signed_ptr == 0 || !is_live_signed_handle(signed_ptr) {
 		return JByteArray::default();
 	}
 
+	// SAFETY: liveness validated against signed-block registry.
 	let block = unsafe { &*(signed_ptr as *const Block) };
 	env.byte_array_from_slice(block.to_bytes()).unwrap_or_default()
 }
@@ -1173,7 +1392,9 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_freeSignedBlock(
 	_class: JClass,
 	signed_ptr: jlong,
 ) {
-	if signed_ptr != 0 {
+	if signed_ptr != 0 && unregister_signed_handle(signed_ptr) {
+		// SAFETY: handle was removed from signed-block registry, so this is the
+		// unique reconstruction/free for this allocation.
 		unsafe {
 			let _ = Box::from_raw(signed_ptr as *mut Block);
 		}
