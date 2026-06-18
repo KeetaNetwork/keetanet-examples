@@ -29,6 +29,12 @@ public final class Permissions {
 
     static {
         long[] v = KeetaNetJNI.getPermissionConstants();
+        if (v == null || v.length < 15) {
+            throw new ExceptionInInitializerError(
+                "Native getPermissionConstants() returned "
+                    + (v == null ? "null" : ("length " + v.length))
+                    + ", expected at least 15 entries");
+        }
         ACCESS          = v[0];
         OWNER           = v[1];
         ADMIN           = v[2];

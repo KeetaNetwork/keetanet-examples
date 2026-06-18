@@ -34,11 +34,13 @@ public class UserClient implements AutoCloseable {
     }
 
     public byte[] head() {
-        return KeetaNetJNI.userClientHead(getNativePtr());
+        byte[] hash = KeetaNetJNI.userClientHead(getNativePtr());
+        return normalizeHeadHash(hash);
     }
 
     public byte[] head(Account account) {
-        return KeetaNetJNI.userClientHeadForAccount(getNativePtr(), account.getNativePtr());
+        byte[] hash = KeetaNetJNI.userClientHeadForAccount(getNativePtr(), account.getNativePtr());
+        return normalizeHeadHash(hash);
     }
 
     public boolean transmit(Block.SignedBlock... blocks) {
@@ -69,6 +71,16 @@ public class UserClient implements AutoCloseable {
             throw new IllegalStateException("UserClient has been freed");
         }
         return nativePtr;
+    }
+
+    private static byte[] normalizeHeadHash(byte[] hash) {
+        if (hash == null || hash.length == 0) {
+            return null;
+        }
+        if (hash.length != 32) {
+            throw new RuntimeException("Invalid head hash length: " + hash.length + " (expected 32)");
+        }
+        return hash;
     }
 
     @Override

@@ -53,6 +53,12 @@ public class Account implements AutoCloseable {
         // Sanity-check the Java enum values against the Rust KeyPairType enum.
         // Order: [ECDSA_SECP256K1, ED25519, NETWORK, TOKEN, STORAGE, ECDSA_SECP256R1, MULTISIG]
         long[] v = KeetaNetJNI.getAccountTypeConstants();
+        if (v == null || v.length < 7) {
+            throw new ExceptionInInitializerError(
+                "Native getAccountTypeConstants() returned "
+                    + (v == null ? "null" : ("length " + v.length))
+                    + ", expected at least 7 entries");
+        }
         AccountKeyAlgorithm[] order = {
             AccountKeyAlgorithm.ECDSA_SECP256K1,
             AccountKeyAlgorithm.ED25519,
@@ -108,6 +114,9 @@ public class Account implements AutoCloseable {
      * Construct an account from a seed and index.
      */
     public static Account fromSeed(String seedHex, int index, AccountKeyAlgorithm keyType) {
+        if (index < 0) {
+            throw new IllegalArgumentException("index must be >= 0, got " + index);
+        }
         long ptr = KeetaNetJNI.accountFromSeed(seedHex, index, keyType.value());
         if (ptr == 0) {
             throw new RuntimeException("Failed to create account from seed");
@@ -288,6 +297,9 @@ public class Account implements AutoCloseable {
     public Account generateIdentifier(AccountKeyAlgorithm type, byte[] blockHash, int operationIndex) {
         if (!isIdentifierKeyType(type)) {
             throw new IllegalArgumentException(type + " is not an identifier key type");
+        }
+        if (operationIndex < 0) {
+            throw new IllegalArgumentException("operationIndex must be >= 0, got " + operationIndex);
         }
         if (blockHash != null && blockHash.length != 32) {
             throw new IllegalArgumentException("blockHash must be 32 bytes, got " + blockHash.length);

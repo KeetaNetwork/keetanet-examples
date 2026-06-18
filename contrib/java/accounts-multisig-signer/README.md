@@ -6,7 +6,7 @@ JNI (Java Native Interface). It mirrors the functionality of the TypeScript
 
 ## What it demonstrates
 
-1. Generating a random seed and deriving accounts from it (ED25519)
+1. Generating a random seed and deriving accounts from it (default ECDSA_SECP256K1, matching the TypeScript example)
 2. Deriving a multisig identifier and a token identifier from an account
 3. Signing and verifying messages
 4. Building, hashing, signing, and transmitting blocks:

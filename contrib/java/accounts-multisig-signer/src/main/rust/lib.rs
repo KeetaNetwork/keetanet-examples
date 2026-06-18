@@ -157,6 +157,10 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_accountFromSeed(
 	index: jint,
 	key_type: jint,
 ) -> jlong {
+	if index < 0 {
+		return 0;
+	}
+
 	let seed_str: String = match env.get_string(&seed_hex) {
 		Ok(s) => s.into(),
 		Err(_) => return 0,
@@ -311,6 +315,9 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_generateIdentifie
 	operation_index: jint,
 ) -> jlong {
 	if account_ptr == 0 {
+		return 0;
+	}
+	if operation_index < 0 {
 		return 0;
 	}
 
@@ -718,6 +725,9 @@ pub extern "system" fn Java_network_keeta_examples_KeetaNetJNI_createMultisigOpe
 	quorum: jint,
 ) -> jlong {
 	if multisig_ptr == 0 || signer1_ptr == 0 || signer2_ptr == 0 || signer3_ptr == 0 {
+		return 0;
+	}
+	if !(1..=3).contains(&quorum) {
 		return 0;
 	}
 

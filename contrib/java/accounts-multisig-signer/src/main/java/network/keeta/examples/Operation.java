@@ -28,6 +28,9 @@ public class Operation implements AutoCloseable {
      */
     public static Operation createMultisigIdentifier(Account multisig, Account signer1, Account signer2,
                                                      Account signer3, int quorum) {
+        if (quorum < 1 || quorum > 3) {
+            throw new IllegalArgumentException("quorum must be in range [1, 3], got " + quorum);
+        }
         return new Operation(KeetaNetJNI.createMultisigOperation(
             multisig.getNativePtr(),
             signer1.getNativePtr(),

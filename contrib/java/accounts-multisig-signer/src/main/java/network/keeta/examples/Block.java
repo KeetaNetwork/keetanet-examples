@@ -29,41 +29,52 @@ public class Block {
          * @param previousHash Previous block hash (32 bytes), or null for opening blocks
          */
         public Builder(long network, Account account, byte[] previousHash) {
+            if (account == null) {
+                throw new IllegalArgumentException("account must not be null");
+            }
             this.builderPtr = KeetaNetJNI.createBlockBuilder();
             if (this.builderPtr == 0) {
                 throw new RuntimeException("Failed to create block builder");
             }
-            
-            // Set version to V2 (default)
-            this.builderPtr = KeetaNetJNI.blockBuilderSetVersion(this.builderPtr, 2);
-            if (this.builderPtr == 0) {
-                throw new RuntimeException("Failed to set block version");
-            }
-            
-            // Set network
-            this.builderPtr = KeetaNetJNI.blockBuilderSetNetwork(this.builderPtr, network);
-            if (this.builderPtr == 0) {
-                throw new RuntimeException("Failed to set network");
-            }
-            
-            // Set account
-            this.builderPtr = KeetaNetJNI.blockBuilderSetAccount(this.builderPtr, account.getNativePtr());
-            if (this.builderPtr == 0) {
-                throw new RuntimeException("Failed to set account");
-            }
-            
-            // Set previous hash, or mark as the account opening block
-            if (previousHash != null) {
-                if (previousHash.length != 32) {
-                    throw new IllegalArgumentException("Previous hash must be 32 bytes");
+            try {
+                // Set version to V2 (default)
+                this.builderPtr = KeetaNetJNI.blockBuilderSetVersion(this.builderPtr, 2);
+                if (this.builderPtr == 0) {
+                    throw new RuntimeException("Failed to set block version");
                 }
-                this.builderPtr = KeetaNetJNI.blockBuilderSetPrevious(this.builderPtr, previousHash);
-            } else {
-                this.builderPtr = KeetaNetJNI.blockBuilderSetNoPrevious(this.builderPtr);
-            }
-            
-            if (this.builderPtr == 0) {
-                throw new RuntimeException("Failed to set previous hash");
+
+                // Set network
+                this.builderPtr = KeetaNetJNI.blockBuilderSetNetwork(this.builderPtr, network);
+                if (this.builderPtr == 0) {
+                    throw new RuntimeException("Failed to set network");
+                }
+
+                // Set account
+                this.builderPtr = KeetaNetJNI.blockBuilderSetAccount(this.builderPtr, account.getNativePtr());
+                if (this.builderPtr == 0) {
+                    throw new RuntimeException("Failed to set account");
+                }
+
+                // Set previous hash, or mark as the account opening block
+                if (previousHash != null) {
+                    if (previousHash.length != 32) {
+                        throw new IllegalArgumentException("Previous hash must be 32 bytes");
+                    }
+                    this.builderPtr = KeetaNetJNI.blockBuilderSetPrevious(this.builderPtr, previousHash);
+                } else {
+                    this.builderPtr = KeetaNetJNI.blockBuilderSetNoPrevious(this.builderPtr);
+                }
+
+                if (this.builderPtr == 0) {
+                    throw new RuntimeException("Failed to set previous hash");
+                }
+            } catch (RuntimeException e) {
+                if (this.builderPtr != 0) {
+                    KeetaNetJNI.freeBlockBuilder(this.builderPtr);
+                    this.builderPtr = 0;
+                }
+                closed = true;
+                throw e;
             }
         }
         
@@ -223,6 +234,9 @@ public class Block {
             }
             
             byte[] signersData = KeetaNetJNI.unsignedBlockGetSigners(unsignedPtr);
+            if (signersData == null || signersData.length < 4) {
+                throw new RuntimeException("Failed to get required signers");
+            }
             List<byte[]> signers = new ArrayList<>();
             
             // Parse: count (4 bytes) + (length (4 bytes) + pubkey) * count
@@ -230,11 +244,23 @@ public class Block {
             buffer.order(ByteOrder.BIG_ENDIAN);
             
             int count = buffer.getInt();
+            if (count < 0) {
+                throw new RuntimeException("Invalid required signer count: " + count);
+            }
             for (int i = 0; i < count; i++) {
+                if (buffer.remaining() < 4) {
+                    throw new RuntimeException("Malformed signer payload: missing length for signer " + i);
+                }
                 int length = buffer.getInt();
+                if (length < 0 || buffer.remaining() < length) {
+                    throw new RuntimeException("Malformed signer payload: invalid signer length " + length + " at index " + i);
+                }
                 byte[] pubkey = new byte[length];
                 buffer.get(pubkey);
                 signers.add(pubkey);
+            }
+            if (buffer.hasRemaining()) {
+                throw new RuntimeException("Malformed signer payload: trailing bytes");
             }
             
             return signers;
