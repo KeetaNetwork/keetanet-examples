@@ -13,12 +13,14 @@ import java.nio.ByteOrder;
  * in the block's signer field, so no signatures cross the JNI boundary.
  */
 public class Block {
+    public static final int PURPOSE_GENERIC = 0;
+    public static final int PURPOSE_FEE = 1;
     
     /**
      * Builder for creating unsigned blocks
      */
     public static class Builder implements AutoCloseable {
-        private long builderPtr;
+        private String builderHandle;
         private boolean closed = false;
         
         /**
@@ -32,26 +34,30 @@ public class Block {
             if (account == null) {
                 throw new IllegalArgumentException("account must not be null");
             }
-            this.builderPtr = KeetaNetJNI.createBlockBuilder();
-            if (this.builderPtr == 0) {
+            long builderPtr = KeetaNetJNI.createBlockBuilder();
+            if (builderPtr == 0) {
                 throw new RuntimeException("Failed to create block builder");
             }
+            this.builderHandle = KeetaNetJNI.registerNativeHandle("builder", builderPtr);
             try {
                 // Set version to V2 (default)
-                this.builderPtr = KeetaNetJNI.blockBuilderSetVersion(this.builderPtr, 2);
-                if (this.builderPtr == 0) {
+                builderPtr = KeetaNetJNI.blockBuilderSetVersion(getNativePtr(), 2);
+                updateHandle(builderPtr);
+                if (builderPtr == 0) {
                     throw new RuntimeException("Failed to set block version");
                 }
 
                 // Set network
-                this.builderPtr = KeetaNetJNI.blockBuilderSetNetwork(this.builderPtr, network);
-                if (this.builderPtr == 0) {
+                builderPtr = KeetaNetJNI.blockBuilderSetNetwork(getNativePtr(), network);
+                updateHandle(builderPtr);
+                if (builderPtr == 0) {
                     throw new RuntimeException("Failed to set network");
                 }
 
                 // Set account
-                this.builderPtr = KeetaNetJNI.blockBuilderSetAccount(this.builderPtr, account.getNativePtr());
-                if (this.builderPtr == 0) {
+                builderPtr = KeetaNetJNI.blockBuilderSetAccount(getNativePtr(), account.getNativePtr());
+                updateHandle(builderPtr);
+                if (builderPtr == 0) {
                     throw new RuntimeException("Failed to set account");
                 }
 
@@ -60,18 +66,20 @@ public class Block {
                     if (previousHash.length != 32) {
                         throw new IllegalArgumentException("Previous hash must be 32 bytes");
                     }
-                    this.builderPtr = KeetaNetJNI.blockBuilderSetPrevious(this.builderPtr, previousHash);
+                    builderPtr = KeetaNetJNI.blockBuilderSetPrevious(getNativePtr(), previousHash);
                 } else {
-                    this.builderPtr = KeetaNetJNI.blockBuilderSetNoPrevious(this.builderPtr);
+                    builderPtr = KeetaNetJNI.blockBuilderSetNoPrevious(getNativePtr());
                 }
+                updateHandle(builderPtr);
 
-                if (this.builderPtr == 0) {
+                if (builderPtr == 0) {
                     throw new RuntimeException("Failed to set previous hash");
                 }
             } catch (RuntimeException e) {
-                if (this.builderPtr != 0) {
-                    KeetaNetJNI.freeBlockBuilder(this.builderPtr);
-                    this.builderPtr = 0;
+                if (this.builderHandle != null) {
+                    KeetaNetJNI.freeBlockBuilder(getNativePtr());
+                    KeetaNetJNI.unregisterNativeHandle("builder", this.builderHandle);
+                    this.builderHandle = null;
                 }
                 closed = true;
                 throw e;
@@ -90,11 +98,27 @@ public class Block {
                 throw new IllegalStateException("Builder has been closed");
             }
 
-            this.builderPtr = KeetaNetJNI.blockBuilderSetSigner(this.builderPtr, signer.getNativePtr());
-            if (this.builderPtr == 0) {
+            long builderPtr = KeetaNetJNI.blockBuilderSetSigner(getNativePtr(), signer.getNativePtr());
+            updateHandle(builderPtr);
+            if (builderPtr == 0) {
                 throw new RuntimeException("Failed to set signer");
             }
 
+            return this;
+        }
+
+        public Builder purpose(int purpose) {
+            if (closed) {
+                throw new IllegalStateException("Builder has been closed");
+            }
+            if (purpose != PURPOSE_GENERIC && purpose != PURPOSE_FEE) {
+                throw new IllegalArgumentException("Invalid block purpose: " + purpose);
+            }
+            long builderPtr = KeetaNetJNI.blockBuilderSetPurpose(getNativePtr(), purpose);
+            updateHandle(builderPtr);
+            if (builderPtr == 0) {
+                throw new RuntimeException("Failed to set block purpose");
+            }
             return this;
         }
 
@@ -116,13 +140,14 @@ public class Block {
                 signerPtrs[i] = signers[i].getNativePtr();
             }
             
-            this.builderPtr = KeetaNetJNI.blockBuilderSetMultisigSigner(
-                this.builderPtr,
+            long builderPtr = KeetaNetJNI.blockBuilderSetMultisigSigner(
+                getNativePtr(),
                 multisig.getNativePtr(),
                 signerPtrs
             );
+            updateHandle(builderPtr);
             
-            if (this.builderPtr == 0) {
+            if (builderPtr == 0) {
                 throw new RuntimeException("Failed to set multisig signer");
             }
             
@@ -140,8 +165,9 @@ public class Block {
                 throw new IllegalStateException("Builder has been closed");
             }
             
-            this.builderPtr = KeetaNetJNI.blockBuilderAddOperation(this.builderPtr, operation.getNativePtr());
-            if (this.builderPtr == 0) {
+            long builderPtr = KeetaNetJNI.blockBuilderAddOperation(getNativePtr(), operation.getNativePtr());
+            updateHandle(builderPtr);
+            if (builderPtr == 0) {
                 throw new RuntimeException("Failed to add operation");
             }
             
@@ -159,9 +185,10 @@ public class Block {
                 throw new IllegalStateException("Builder has been closed");
             }
             
-            long unsignedPtr = KeetaNetJNI.blockBuilderBuild(this.builderPtr);
+            long unsignedPtr = KeetaNetJNI.blockBuilderBuild(getNativePtr());
+            KeetaNetJNI.unregisterNativeHandle("builder", builderHandle);
             closed = true;
-            builderPtr = 0;
+            builderHandle = null;
 
             if (unsignedPtr == 0) {
                 throw new RuntimeException("Failed to build block (validation failed?)");
@@ -172,11 +199,32 @@ public class Block {
         
         @Override
         public void close() {
-            if (!closed && builderPtr != 0) {
-                KeetaNetJNI.freeBlockBuilder(builderPtr);
-                builderPtr = 0;
+            if (!closed && builderHandle != null) {
+                KeetaNetJNI.freeBlockBuilder(getNativePtr());
+                KeetaNetJNI.unregisterNativeHandle("builder", builderHandle);
+                builderHandle = null;
                 closed = true;
             }
+        }
+
+        private long getNativePtr() {
+            if (closed || builderHandle == null) {
+                throw new IllegalStateException("Builder has been closed");
+            }
+            return KeetaNetJNI.requireNativeHandle("builder", builderHandle);
+        }
+
+        private void updateHandle(long nextPtr) {
+            String oldHandle = builderHandle;
+            if (nextPtr == 0) {
+                KeetaNetJNI.unregisterNativeHandle("builder", oldHandle);
+                builderHandle = null;
+                closed = true;
+                return;
+            }
+            String nextHandle = KeetaNetJNI.registerNativeHandle("builder", nextPtr);
+            builderHandle = nextHandle;
+            KeetaNetJNI.unregisterNativeHandle("builder", oldHandle);
         }
     }
     
@@ -184,11 +232,11 @@ public class Block {
      * Unsigned block ready for signing
      */
     public static class UnsignedBlock implements AutoCloseable {
-        private long unsignedPtr;
+        private String unsignedHandle;
         private boolean freed = false;
         
         private UnsignedBlock(long ptr) {
-            this.unsignedPtr = ptr;
+            this.unsignedHandle = KeetaNetJNI.registerNativeHandle("unsigned-block", ptr);
         }
         
         /**
@@ -200,7 +248,7 @@ public class Block {
             if (freed) {
                 throw new IllegalStateException("Block has been freed");
             }
-            byte[] hash = KeetaNetJNI.unsignedBlockGetHash(unsignedPtr);
+            byte[] hash = KeetaNetJNI.unsignedBlockGetHash(getNativePtr());
             if (hash == null || hash.length == 0) {
                 throw new RuntimeException("Failed to compute block hash");
             }
@@ -215,7 +263,7 @@ public class Block {
             if (freed) {
                 throw new IllegalStateException("Block has been freed");
             }
-            String hash = KeetaNetJNI.unsignedBlockGetHashString(unsignedPtr);
+            String hash = KeetaNetJNI.unsignedBlockGetHashString(getNativePtr());
             if (hash == null) {
                 throw new RuntimeException("Failed to compute block hash");
             }
@@ -233,7 +281,7 @@ public class Block {
                 throw new IllegalStateException("Block has been freed");
             }
             
-            byte[] signersData = KeetaNetJNI.unsignedBlockGetSigners(unsignedPtr);
+            byte[] signersData = KeetaNetJNI.unsignedBlockGetSigners(getNativePtr());
             if (signersData == null || signersData.length < 4) {
                 throw new RuntimeException("Failed to get required signers");
             }
@@ -279,9 +327,10 @@ public class Block {
                 throw new IllegalStateException("Block has been freed");
             }
             
-            long signedPtr = KeetaNetJNI.unsignedBlockSign(unsignedPtr);
+            long signedPtr = KeetaNetJNI.unsignedBlockSign(getNativePtr());
+            KeetaNetJNI.unregisterNativeHandle("unsigned-block", unsignedHandle);
             freed = true;
-            unsignedPtr = 0;
+            unsignedHandle = null;
             
             if (signedPtr == 0) {
                 throw new RuntimeException("Failed to sign block");
@@ -292,11 +341,19 @@ public class Block {
         
         @Override
         public void close() {
-            if (!freed && unsignedPtr != 0) {
-                KeetaNetJNI.freeUnsignedBlock(unsignedPtr);
-                unsignedPtr = 0;
+            if (!freed && unsignedHandle != null) {
+                KeetaNetJNI.freeUnsignedBlock(getNativePtr());
+                KeetaNetJNI.unregisterNativeHandle("unsigned-block", unsignedHandle);
+                unsignedHandle = null;
                 freed = true;
             }
+        }
+
+        private long getNativePtr() {
+            if (freed || unsignedHandle == null) {
+                throw new IllegalStateException("Block has been freed");
+            }
+            return KeetaNetJNI.requireNativeHandle("unsigned-block", unsignedHandle);
         }
     }
     
@@ -304,11 +361,11 @@ public class Block {
      * Signed block ready for network transmission
      */
     public static class SignedBlock implements AutoCloseable {
-        private long signedPtr;
+        private String signedHandle;
         private boolean freed = false;
         
         private SignedBlock(long ptr) {
-            this.signedPtr = ptr;
+            this.signedHandle = KeetaNetJNI.registerNativeHandle("signed-block", ptr);
         }
         
         /**
@@ -320,7 +377,7 @@ public class Block {
             if (freed) {
                 throw new IllegalStateException("Block has been freed");
             }
-            byte[] hash = KeetaNetJNI.signedBlockGetHash(signedPtr);
+            byte[] hash = KeetaNetJNI.signedBlockGetHash(getNativePtr());
             if (hash == null || hash.length == 0) {
                 throw new RuntimeException("Failed to compute block hash");
             }
@@ -336,7 +393,7 @@ public class Block {
             if (freed) {
                 throw new IllegalStateException("Block has been freed");
             }
-            String hash = KeetaNetJNI.signedBlockGetHashString(signedPtr);
+            String hash = KeetaNetJNI.signedBlockGetHashString(getNativePtr());
             if (hash == null) {
                 throw new RuntimeException("Failed to compute block hash");
             }
@@ -352,25 +409,37 @@ public class Block {
             if (freed) {
                 throw new IllegalStateException("Block has been freed");
             }
-            byte[] bytes = KeetaNetJNI.signedBlockToBytes(signedPtr);
+            byte[] bytes = KeetaNetJNI.signedBlockToBytes(getNativePtr());
             if (bytes == null || bytes.length == 0) {
                 throw new RuntimeException("Failed to serialize block");
             }
             return bytes;
         }
 
+        String getAccountPublicKeyString() {
+            if (freed) {
+                throw new IllegalStateException("Block has been freed");
+            }
+            String account = KeetaNetJNI.signedBlockGetAccountString(getNativePtr());
+            if (account == null) {
+                throw new RuntimeException("Failed to get block account");
+            }
+            return account;
+        }
+
         long getNativePtr() {
             if (freed) {
                 throw new IllegalStateException("Block has been freed");
             }
-            return signedPtr;
+            return KeetaNetJNI.requireNativeHandle("signed-block", signedHandle);
         }
         
         @Override
         public void close() {
-            if (!freed && signedPtr != 0) {
-                KeetaNetJNI.freeSignedBlock(signedPtr);
-                signedPtr = 0;
+            if (!freed && signedHandle != null) {
+                KeetaNetJNI.freeSignedBlock(getNativePtr());
+                KeetaNetJNI.unregisterNativeHandle("signed-block", signedHandle);
+                signedHandle = null;
                 freed = true;
             }
         }

@@ -1,7 +1,7 @@
-# Keetanet Java JNI Multisig Example
+# Keetanet Java WASM Multisig Example
 
 This example demonstrates how to use the Keetanet Rust crates from Java via
-JNI (Java Native Interface). It mirrors the functionality of the TypeScript
+WASM (loaded with Chicory). It mirrors the functionality of the TypeScript
 `src/client/accounts-multisig-signer.ts` example.
 
 ## What it demonstrates
@@ -15,24 +15,27 @@ JNI (Java Native Interface). It mirrors the functionality of the TypeScript
      signed by the user account
    - `multisigExampleBlock` — a `SET_INFO` operation on a custom token,
      signed by the multisig using only 2 of its 3 signers (the quorum)
-5. Transmitting both signed blocks as vote staples through `keetanetwork-client`
+5. Transmitting both signed blocks as vote staples using Java HTTP networking (`/vote`, `/node/publish`)
+   with vote staple construction done by Rust/WASM
+6. Handling `LEDGER_SUCCESSOR_VOTE_EXISTS` by waiting for representative vote expiry and retrying transmit
 6. Requesting testnet faucet funds before transmitting (same as the TypeScript example)
 
 ## Layout
 
 * `src/main/java/network/keeta/examples/` — Java sources:
-  - `KeetaNetJNI.java` — the raw JNI bindings
+  - `KeetaNetJNI.java`, `KeetaNetWasmBridge.java` — WASM bridge bindings
   - `Account.java`, `Block.java`, `UserClient.java`, `Permissions.java` — thin wrappers that
-    manage native memory (via `AutoCloseable`) and provide a friendlier API
+    manage Rust-side handles (via `AutoCloseable`) and provide a friendlier API
   - `AccountsMultisigSigner.java` — the example program
-* `src/main/rust/lib.rs` — the Rust JNI shim around the `keetanetwork-*` crates
+* `wasm-bridge/src/lib.rs` — the Rust WASM shim around `keetanetwork-*` crates
 * `Cargo.toml` / `Makefile` — build configuration
 
 ## Requirements
 
-* Rust 1.70+ (cargo)
+* Rust 1.70+ (cargo, plus target `wasm32-wasip1`)
 * Java JDK 17+
 * Make
+* curl (to fetch Chicory jars)
 
 ## Building and running
 

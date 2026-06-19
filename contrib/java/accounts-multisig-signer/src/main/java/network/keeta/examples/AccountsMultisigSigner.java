@@ -47,46 +47,66 @@ public class AccountsMultisigSigner {
                                 throw new RuntimeException("Failed to transmit identifier block");
                             }
 
-                            try (Account customToken = userClient.generateIdentifier(Account.AccountKeyAlgorithm.TOKEN)) {
-                                byte[] permissionsPrevious = userClient.head(customToken);
-                                try (Block.Builder permissionsBuilder = new Block.Builder(NETWORK_TEST, customToken, permissionsPrevious);
-                                     Operation grantAdmin = Operation.modifyPermissions(multisigIdentifier, Permissions.ADMIN, ADJUST_METHOD_SET)) {
-                                    permissionsBuilder.signer(userAccount);
-                                    permissionsBuilder.addOperation(grantAdmin);
-                                    try (Block.UnsignedBlock permissionsUnsigned = permissionsBuilder.seal();
-                                         Block.SignedBlock permissionsBlock = permissionsUnsigned.sign()) {
-                                        if (!userClient.transmit(permissionsBlock)) {
-                                            throw new RuntimeException("Failed to update permissions on custom token");
+                            byte[] userHeadForTokenCreate = userClient.head();
+                            try (Account customToken = userAccount.generateIdentifier(
+                                     Account.AccountKeyAlgorithm.TOKEN,
+                                     userHeadForTokenCreate,
+                                     0
+                                 );
+                                 Block.Builder tokenCreateBuilder = new Block.Builder(NETWORK_TEST, userAccount, userHeadForTokenCreate);
+                                 Operation createToken = Operation.createIdentifier(customToken)) {
+                                tokenCreateBuilder.signer(userAccount);
+                                tokenCreateBuilder.addOperation(createToken);
+                                try (Block.UnsignedBlock tokenCreateUnsigned = tokenCreateBuilder.seal();
+                                     Block.SignedBlock tokenCreateBlock = tokenCreateUnsigned.sign()) {
+                                    if (!userClient.transmit(tokenCreateBlock)) {
+                                        throw new RuntimeException("Failed to transmit token creation block");
+                                    }
+
+                                    byte[] permissionsPrevious = userClient.head(customToken);
+                                    try (Block.Builder permissionsBuilder = new Block.Builder(NETWORK_TEST, customToken, permissionsPrevious);
+                                         Operation grantAdmin = Operation.modifyPermissions(
+                                             multisigIdentifier,
+                                             Permissions.ADMIN,
+                                             ADJUST_METHOD_SET
+                                         )) {
+                                        permissionsBuilder.signer(userAccount);
+                                        permissionsBuilder.addOperation(grantAdmin);
+                                        try (Block.UnsignedBlock permissionsUnsigned = permissionsBuilder.seal();
+                                             Block.SignedBlock permissionsBlock = permissionsUnsigned.sign()) {
+                                            if (!userClient.transmit(permissionsBlock)) {
+                                                throw new RuntimeException("Failed to update permissions on custom token");
+                                            }
                                         }
                                     }
-                                }
 
-                                byte[] tokenHeadBlockHash = userClient.head(customToken);
-                                String basicMetadata = Base64.getEncoder().encodeToString(
-                                    "{\"decimalPlaces\":6}".getBytes(StandardCharsets.UTF_8)
-                                );
+                                    byte[] tokenHeadBlockHash = userClient.head(customToken);
+                                    String basicMetadata = Base64.getEncoder().encodeToString(
+                                        "{\"decimalPlaces\":6}".getBytes(StandardCharsets.UTF_8)
+                                    );
 
-                                try (Block.Builder tokenBuilder = new Block.Builder(NETWORK_TEST, customToken, tokenHeadBlockHash);
-                                     Operation setInfoOp = Operation.setInfo(
-                                         "TKNM",
-                                         "Test Multisig Token Example",
-                                         basicMetadata,
-                                         Permissions.ACCESS
-                                     )) {
-                                    tokenBuilder.signer(multisigIdentifier, new Account[]{signer1, signer2});
-                                    tokenBuilder.addOperation(setInfoOp);
-                                    try (Block.UnsignedBlock tokenUnsigned = tokenBuilder.seal();
-                                         Block.SignedBlock multisigExampleBlock = tokenUnsigned.sign()) {
-                                        if (!userClient.transmit(multisigExampleBlock)) {
-                                            throw new RuntimeException("Failed to transmit multisig example block");
+                                    try (Block.Builder tokenBuilder = new Block.Builder(NETWORK_TEST, customToken, tokenHeadBlockHash);
+                                         Operation setInfoOp = Operation.setInfo(
+                                             "TKNM",
+                                             "Test Multisig Token Example",
+                                             basicMetadata,
+                                             Permissions.ACCESS
+                                         )) {
+                                        tokenBuilder.signer(multisigIdentifier, new Account[]{signer1, signer2});
+                                        tokenBuilder.addOperation(setInfoOp);
+                                        try (Block.UnsignedBlock tokenUnsigned = tokenBuilder.seal();
+                                             Block.SignedBlock multisigExampleBlock = tokenUnsigned.sign()) {
+                                            if (!userClient.transmit(multisigExampleBlock)) {
+                                                throw new RuntimeException("Failed to transmit multisig example block");
+                                            }
+
+                                            System.out.println("Seed: " + seed);
+                                            System.out.println("User Account: " + userAccount.publicKeyString());
+                                            System.out.println("MultiSig Account: " + multisigIdentifier.publicKeyString());
+                                            System.out.println("Create MultiSig Block: " + identifierBlock.getHashHex());
+                                            System.out.println("Custom Token: " + customToken.publicKeyString());
+                                            System.out.println("Token MultiSig Block: " + multisigExampleBlock.getHashHex());
                                         }
-
-                                        System.out.println("Seed: " + seed);
-                                        System.out.println("User Account: " + userAccount.publicKeyString());
-                                        System.out.println("MultiSig Account: " + multisigIdentifier.publicKeyString());
-                                        System.out.println("Create MultiSig Block: " + identifierBlock.getHashHex());
-                                        System.out.println("Custom Token: " + customToken.publicKeyString());
-                                        System.out.println("Token MultiSig Block: " + multisigExampleBlock.getHashHex());
                                     }
                                 }
                             }

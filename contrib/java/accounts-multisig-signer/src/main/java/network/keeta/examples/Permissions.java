@@ -1,8 +1,7 @@
 package network.keeta.examples;
 
 /**
- * Permission bit masks (1 << BaseFlag) sourced from the Rust
- * keetanetwork_block::BaseFlag enum via JNI.
+ * Permission bit masks (1 << BaseFlag) sourced from Rust enum values.
  */
 public final class Permissions {
     // Base permission bit masks — loaded from Rust at class initialisation time.

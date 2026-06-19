@@ -5,14 +5,25 @@ package network.keeta.examples;
  * held as a native handle. Add to a block with {@link Block.Builder#addOperation}.
  */
 public class Operation implements AutoCloseable {
-    private long nativePtr;
+    private String nativeHandle;
     private boolean freed = false;
 
     Operation(long ptr) {
         if (ptr == 0) {
             throw new RuntimeException("Failed to create operation");
         }
-        this.nativePtr = ptr;
+        this.nativeHandle = KeetaNetJNI.registerNativeHandle("operation", ptr);
+    }
+
+    /**
+     * Create a CREATE_IDENTIFIER operation without createArguments.
+     * This is used for standard identifier creation (for example TOKEN).
+     *
+     * @param identifier Identifier account derived from the issuer account
+     * @return Operation handle (close when no longer needed)
+     */
+    public static Operation createIdentifier(Account identifier) {
+        return new Operation(KeetaNetJNI.createIdentifierOperation(identifier.getNativePtr()));
     }
 
     /**
@@ -69,18 +80,27 @@ public class Operation implements AutoCloseable {
         return new Operation(KeetaNetJNI.createSetInfoOperation(name, description, metadata, defaultPermissionBits));
     }
 
+    public static Operation createSend(Account to, Account token, String amount) {
+        if (to == null || token == null || amount == null || amount.isEmpty()) {
+            throw new IllegalArgumentException("to, token and amount are required");
+        }
+        return new Operation(KeetaNetJNI.createSendOperation(to.getNativePtr(), token.getNativePtr(), amount));
+    }
+
     long getNativePtr() {
         if (freed) {
             throw new IllegalStateException("Operation has been freed");
         }
-        return nativePtr;
+        return KeetaNetJNI.requireNativeHandle("operation", nativeHandle);
     }
 
     @Override
     public void close() {
-        if (!freed && nativePtr != 0) {
-            KeetaNetJNI.freeOperation(nativePtr);
-            nativePtr = 0;
+        if (!freed && nativeHandle != null) {
+            long ptr = KeetaNetJNI.requireNativeHandle("operation", nativeHandle);
+            KeetaNetJNI.freeOperation(ptr);
+            KeetaNetJNI.unregisterNativeHandle("operation", nativeHandle);
+            nativeHandle = null;
             freed = true;
         }
     }

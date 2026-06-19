@@ -1,0 +1,18 @@
+[package]
+name = "keetanet-wasm-bridge"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+# TODO: Change to crates.io versions once published.
+keetanetwork-account = { path = "../../../../../node-rs/keetanetwork-account" }
+keetanetwork-crypto = { path = "../../../../../node-rs/keetanetwork-crypto" }
+keetanetwork-block = { path = "../../../../../node-rs/keetanetwork-block" }
+keetanetwork-vote = { path = "../../../../../node-rs/keetanetwork-vote" }
+hex = "0.4"
+num-bigint = "0.4"
+once_cell = "1"

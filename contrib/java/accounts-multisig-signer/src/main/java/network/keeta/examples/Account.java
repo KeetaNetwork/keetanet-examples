@@ -77,18 +77,18 @@ public class Account implements AutoCloseable {
         }
     }
 
-    private long nativePtr;
+    private String nativeHandle;
     private boolean freed = false;
 
-    private Account(long ptr) {
-        this.nativePtr = ptr;
+    private Account(String handle) {
+        this.nativeHandle = handle;
     }
 
     static Account fromNativePtr(long ptr) {
         if (ptr == 0) {
             throw new RuntimeException("Native account handle is null");
         }
-        return new Account(ptr);
+        return new Account(KeetaNetJNI.registerNativeHandle("account", ptr));
     }
 
     /* ------------------------------------------------------------------ *
@@ -306,7 +306,7 @@ public class Account implements AutoCloseable {
         if (ptr == 0) {
             throw new RuntimeException("Failed to generate " + type + " identifier");
         }
-        return new Account(ptr);
+        return fromNativePtr(ptr);
     }
 
     /**
@@ -385,15 +385,17 @@ public class Account implements AutoCloseable {
         if (freed) {
             throw new IllegalStateException("Account has been freed");
         }
-        return nativePtr;
+        return KeetaNetJNI.requireNativeHandle("account", nativeHandle);
     }
 
     @Override
     public void close() {
-        if (!freed && nativePtr != 0) {
-            KeetaNetJNI.freeAccount(nativePtr);
+        if (!freed && nativeHandle != null) {
+            long ptr = KeetaNetJNI.requireNativeHandle("account", nativeHandle);
+            KeetaNetJNI.freeAccount(ptr);
+            KeetaNetJNI.unregisterNativeHandle("account", nativeHandle);
             freed = true;
-            nativePtr = 0;
+            nativeHandle = null;
         }
     }
 }
