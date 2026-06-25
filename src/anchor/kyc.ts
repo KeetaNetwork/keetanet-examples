@@ -138,8 +138,17 @@ Visit the following URL to complete KYC:
     console.log(`\n\nKYC Certificate received!`);
     console.log(`  Number of certificates: ${results.results.length}`);
 
+    const { Block } = KeetaAnchor.KeetaNet.lib;
+    const { CertificateBundle } = KeetaAnchor.KeetaNet.lib.Utils.Certificate;
+
     for (const [i, certGroup] of results.results.entries()) {
-      const cert = certGroup.certificate;
+      // Re-wrap with the user's account as the subject key so sensitive
+      // attributes (PII) can be decrypted
+      const cert = new KeetaAnchor.lib.Certificates.Certificate(
+        certGroup.certificate.toPEM(),
+        { subjectKey: userAccount },
+      );
+
       console.log(`\n  Certificate ${i + 1}:`);
       console.log(`    Subject: ${cert.subject}`);
       console.log(`    Valid: ${cert.checkValid()}`);
@@ -149,10 +158,32 @@ Visit the following URL to complete KYC:
           `    Intermediate certificates: ${certGroup.intermediates.size}`,
         );
       }
+
+      if ("fullName" in cert.attributes) {
+        const attr = cert.attributes["fullName"];
+        const value = attr.sensitive
+          ? await attr.value.getValue()
+          : await cert.getAttributeValue("fullName");
+        console.log(`    Full name (decrypted): ${String(value)}`);
+      }
+
+      // Attach the certificate to the user's account onchain
+      const intermediates = certGroup.intermediates
+        ? new CertificateBundle([...certGroup.intermediates])
+        : null;
+      await userClient.modifyCertificate(
+        Block.AdjustMethod.ADD,
+        cert,
+        intermediates,
+      );
     }
 
+    // Read the certificates back from the chain to confirm attachment
+    const onChain = await userClient.client.getAllCertificates(userAccount);
+    console.log(`\nOn-chain certificates for this account: ${onChain.length}`);
+
     console.log(
-      "\nKYC verification complete! Your wallet now has a KYC certificate.",
+      "\nKYC verification complete! The KYC certificate is now attached to your account on-chain.",
     );
     break;
   }
