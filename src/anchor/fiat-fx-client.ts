@@ -45,9 +45,9 @@ async function main() {
 	const KEETA_EUR_ASSET = network === 'test' ? KEETA_TEST_EUR_ASSET : KEETA_MAIN_EUR_ASSET;
 
 	// Prompt for Keeta seed
-	const seedPhrase = await promptUser('Enter your Keeta SEED Phrase (or press Enter for a default seed): ');
-	const account = seedPhrase.trim()
-		? Account.fromSeed(await Account.seedFromPassphrase(seedPhrase), 0)
+	const seed = await promptUser('Enter your Keeta SEED (or press Enter for a default seed): ');
+	const account = seed.trim()
+		? Account.fromSeed(seed, 0)
 		: Account.fromSeed(await Account.seedFromPassphrase(defaultPhrase), 0);
 
 	console.log(`Keeta Fiat FX Example: USD => EUR\n`);
