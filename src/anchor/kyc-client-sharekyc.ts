@@ -1,7 +1,7 @@
 #! /usr/bin/env ts-node
 
 /*
- * Description: Request USD bank deposit info (persistent address) for KEETA_TEST_USD_ASSET; share KYC attributes when required
+ * Description: Use the Keeta Anchor Client to share KYC attributes to an Anchor and Onboard
  */
 
 import * as KeetaAnchor from "@keetanetwork/anchor";
