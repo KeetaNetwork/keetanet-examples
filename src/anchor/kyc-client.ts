@@ -2,8 +2,8 @@
 
 /*
  * Description: Example of using the Keeta Anchor Client to programmatically add KYC to a wallet
- * The KYC certificate is required by some testnet anchors (e.g. ACH) to simulate live network conditions
- * Verification is performed in Footprint's Sandbox environment
+ * The KYC certificate is required by some anchors (e.g. ACH)
+ * Verification is performed in Footprint's Sandbox environment (for testnet)
  *
  * Tip: Use the sandbox Email and Phone numbers for your convenience
  * https://docs.onefootprint.com/articles/guides/sandbox-mode#fixture-contact-info
@@ -43,12 +43,6 @@ async function main() {
 
 	// Create KYC client — the resolver defaults to the network address
 	const kycClient = new KeetaAnchor.KYC.Client(userClient, {
-		root: [
-			userClient.networkAddress,
-			Account.fromPublicKeyString(
-				"keeta_aabcchpocp3o5l4hum5dgqhjzh3vfn2dhiqq4hz6y2ngri24ogyi3x6cizw2b3a"
-			)
-		],
 		...logger
 	});
 
@@ -107,6 +101,11 @@ async function main() {
  COMPLETE YOUR KYC VERIFICATION
 ========================================
 Visit the following URL to complete KYC:
+
+***************************************
+IMPORTANT: For onboarding with Bivo in sandbox, use "three" in address line 2 and a unique SSN / Tax ID
+Share KYC with Bivo will then be automatically approved.  Otherwise the Share KYC request will timeout.
+***************************************
 
 	${verification.webURL}
 
