@@ -18,14 +18,11 @@ const Account = KeetaAnchor.KeetaNet.lib.Account;
 
 const DEBUG = false;
 const logger = DEBUG ? { logger: console } : {};
+const network = 'test';
 
 /** On-chain Keeta token addresses for USD and EUR on the test network */
-const KEETA_TEST_USD_ASSET = Account.fromPublicKeyString('keeta_any4zllibya6fum3lsoimxmnmeo57nklxlh4c6d6xosfacarfaa3knkiprkmm');
-const KEETA_TEST_EUR_ASSET = Account.fromPublicKeyString('keeta_amqsghqea5mv2476c44ahgt7xbawms5z76d7ffbzirkp56t2hn4bahoqljqeg');
-
-/** On-chain Keeta token addresses for USD and EUR on the main network */
-const KEETA_MAIN_USD_ASSET = Account.fromPublicKeyString('keeta_aonxxqry6rknxyb6c5q2ybxk2gt776xlchhcohhyla5kqvinnaduevuxyx3tc');
-const KEETA_MAIN_EUR_ASSET = Account.fromPublicKeyString('keeta_anutgo4o3yp5tvc6wjt4vzsehjbn7t2wylpxmam4d4ojtdkjj2yca2qoinfcs');
+const KEETA_USD_ASSET = Account.fromPublicKeyString('keeta_any4zllibya6fum3lsoimxmnmeo57nklxlh4c6d6xosfacarfaa3knkiprkmm');
+const KEETA_EUR_ASSET = Account.fromPublicKeyString('keeta_amqsghqea5mv2476c44ahgt7xbawms5z76d7ffbzirkp56t2hn4bahoqljqeg');
 
 /** $2.00 USD in cents */
 const CONVERSION_AMOUNT = 200n;
@@ -33,17 +30,6 @@ const CONVERSION_AMOUNT = 200n;
 const defaultPhrase = 'bottom alley wash elbow devote believe maximum amount camera way direct globe frost bottom tilt title ship purse always fluid tennis spread lazy track';
 
 async function main() {
-	let network = await promptUser('Enter the network to use (test or main) (or press Enter for the test network): ');
-	if (!network || network.trim() === '') {
-		network = 'test';
-	}
-	if (network !== 'test' && network !== 'main') {
-		throw(new Error('Invalid network. Must be test or main'));
-	}
-
-	const KEETA_USD_ASSET = network === 'test' ? KEETA_TEST_USD_ASSET : KEETA_MAIN_USD_ASSET;
-	const KEETA_EUR_ASSET = network === 'test' ? KEETA_TEST_EUR_ASSET : KEETA_MAIN_EUR_ASSET;
-
 	// Prompt for Keeta seed
 	const seed = await promptUser('Enter your Keeta SEED (or press Enter for a default seed): ');
 	const account = seed.trim()
@@ -106,11 +92,16 @@ async function main() {
 		path: plan.path,
 		plan: {
 			...plan.plan,
-			/* Remove the transfer property from the steps as it's verbose and not needed for the plan */
+			/* Remove the transfer and provider properties from the steps as it's verbose and not needed for the plan */
 			steps: plan.plan.steps.map(function(step) {
-				if ('transfer' in step) {
+				if (step.type === 'assetMovement') {
 					// eslint-disable-next-line @typescript-eslint/no-unused-vars
-					const { transfer: _ignore_transfer, ...rest } = step;
+					const { transfer: _transfer, provider: _provider, ...rest } = step;
+					return(rest);
+				}
+				if (step.type === 'forwarded') {
+					// eslint-disable-next-line @typescript-eslint/no-unused-vars
+					const { provider: _provider, ...rest } = step;
 					return(rest);
 				}
 				return(step);
