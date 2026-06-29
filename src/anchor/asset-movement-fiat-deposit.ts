@@ -1,7 +1,7 @@
 #! /usr/bin/env ts-node
 
 /*
- * Description: Request USD bank deposit info (persistent address) for KEETA_TEST_USD_ASSET;
+ * Description: Request USD bank deposit info (persistent address) for USD;
  * Assumes KYC is complete and onboarding has been performed.
  */
 
