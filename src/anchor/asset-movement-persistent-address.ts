@@ -58,8 +58,8 @@ async function main() {
 		throw(new Error('No Providers found'));
 	}
 
-	// Use the first provider for this example
-	const provider = providers[0];
+	// Use the DEV2 provider which does not require KYC
+	const provider = providers.find((p) => p.providerID.toString() === 'DEV2');
 	if (!provider) {
 		throw(new Error('Provider is undefined'));
 	}
@@ -67,6 +67,7 @@ async function main() {
 	// Create a persistent forwarding address on Base Sepolia that will
 	// automatically forward received USDC to your Keeta account
 	const persistentAddressResponse = await provider.createPersistentForwardingAddress({
+		account: userAccount,
 		// USDC contract on Base Sepolia
 		asset: KEETA_USDC_ASSET,
 		// Source location: Base Sepolia (where funds will be received)
