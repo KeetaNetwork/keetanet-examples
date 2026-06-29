@@ -75,7 +75,7 @@ async function main() {
 	}
 
 	// Use the DEV2 provider which does not require KYC
-	const provider = providers.find((p) => p.providerID === 'DEV2');
+	const provider = providers.find((p) => p.providerID.toString() === 'DEV2');
 	if (!provider) {
 		throw(new Error('Provider is undefined'));
 	}
