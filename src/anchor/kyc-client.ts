@@ -103,7 +103,9 @@ async function main() {
 Visit the following URL to complete KYC:
 
 ***************************************
-IMPORTANT: For onboarding with Bivo in sandbox, use "three" in address line 2 and a unique SSN / Tax ID
+IMPORTANT: For onboarding with Bivo in sandbox
+- Use "three" in Address Line 2 (optional Apt. Suite field)
+- Use a unique SSN / Tax ID
 Share KYC with Bivo will then be automatically approved.  Otherwise the Share KYC request will timeout.
 ***************************************
 
