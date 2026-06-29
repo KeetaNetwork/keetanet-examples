@@ -58,8 +58,8 @@ async function main() {
 		throw(new Error('No Providers found'));
 	}
 
-	// Use the second provider for this example, it is DEV2 which does not require KYC
-	const provider = providers[1];
+	// Use the DEV2 provider which does not require KYC
+	const provider = providers.find((p) => p.providerID === 'DEV2');
 	if (!provider) {
 		throw(new Error('Provider is undefined'));
 	}
