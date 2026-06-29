@@ -16,7 +16,7 @@ const DEBUG = false;
 const logger = DEBUG ? { logger: console } : {};
 const network = 'test';
 
-const KEETA_TEST_USD_ASSET = Account.fromPublicKeyString('keeta_any4zllibya6fum3lsoimxmnmeo57nklxlh4c6d6xosfacarfaa3knkiprkmm');
+const KEETA_USD_ASSET = Account.fromPublicKeyString('keeta_any4zllibya6fum3lsoimxmnmeo57nklxlh4c6d6xosfacarfaa3knkiprkmm');
 const US_BANK_SOURCE = { type: 'bank-account', account: { type: 'us' }} as const;
 
 async function main() {
@@ -30,7 +30,7 @@ async function main() {
 	const account = Account.fromSeed(seed.trim(), 0);
 
 	console.log(`Keeta Account: ${account.publicKeyString.get()}`);
-	console.log(`USD Token: ${KEETA_TEST_USD_ASSET.publicKeyString.get()}\n`);
+	console.log(`USD Token: ${KEETA_USD_ASSET.publicKeyString.get()}\n`);
 
 	await using userClient = KeetaAnchor.KeetaNet.UserClient.fromNetwork(network, account);
 
@@ -44,7 +44,7 @@ async function main() {
 		chain: { type: 'keeta', networkId: userClient.network }
 	} as const;
 
-	const assetPair = { from: 'USD' as const, to: KEETA_TEST_USD_ASSET };
+	const assetPair = { from: 'USD' as const, to: KEETA_USD_ASSET };
 
 	const providers = await assetMovementClient.getProvidersForTransfer({
 		asset: assetPair,

@@ -17,7 +17,7 @@ const DEBUG = false;
 const logger = DEBUG ? { logger: console } : {};
 const network = "test";
 
-const KEETA_TEST_USD_ASSET = Account.fromPublicKeyString('keeta_any4zllibya6fum3lsoimxmnmeo57nklxlh4c6d6xosfacarfaa3knkiprkmm');
+const KEETA_USD_ASSET = Account.fromPublicKeyString('keeta_any4zllibya6fum3lsoimxmnmeo57nklxlh4c6d6xosfacarfaa3knkiprkmm');
 const US_BANK_SOURCE = { type: 'bank-account', account: { type: 'us' }} as const;
 
 /** Keeta Test Network KYC Root CA — used to verify on-chain KYC certificate chains */
@@ -227,7 +227,7 @@ async function main() {
 		chain: { type: 'keeta', networkId: userClient.network }
 	} as const;
 
-	const assetPair = { from: 'USD' as const, to: KEETA_TEST_USD_ASSET };
+	const assetPair = { from: 'USD' as const, to: KEETA_USD_ASSET };
 
 	// Get the providers for the transfer to trigger KYC share
 	const providers = await assetMovementClient.getProvidersForTransfer({
