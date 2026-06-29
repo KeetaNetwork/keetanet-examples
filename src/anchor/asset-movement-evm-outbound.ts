@@ -165,7 +165,7 @@ IMPORTANT: Before running this example:
 		throw(new Error('Failed to initiate transfer'));
 	}
 
-	console.log(`\nTransfer initiated with ID: ${initiateResponse.transferId}`);
+	console.log(`\nTransfer initiated with ID: ${initiateResponse.transferID}`);
 	console.log('Instructions:', util.inspect(DPO(initiateResponse.instructions), { depth: 4, colors: true }));
 
 	// Get the anchor account from the instructions
@@ -188,13 +188,15 @@ IMPORTANT: Before running this example:
 		throw(new Error('Failed to send block to anchor account'));
 	}
 
+	const transferID = initiateResponse.transferID;
+
 	// Monitor the transfer status
 	console.log('\nMonitoring transfer status... (This will check every 5 seconds. Press Ctrl+C to stop)');
 
 	const startTime = Date.now();
 	const monitoringInterval = setInterval(async () => {
 		try {
-			const transactionResult = await provider.getTransferStatus({ id: initiateResponse.transferId });
+			const transactionResult = await provider.getTransferStatus({ id: transferID });
 
 			if (!transactionResult) {
 				process.stdout.write('.');
@@ -211,7 +213,7 @@ IMPORTANT: Before running this example:
 ========================================
   TRANSFER COMPLETED SUCCESSFULLY!
 ========================================
-Transfer ID: ${initiateResponse.transferId}
+Transfer ID: ${transferID}
 Amount: ${formatDecimals(amountToSend, USDC_DECIMALS)} USDC
 From: Keeta Test Network
 To: Base Sepolia (${baseRecipientAddress})
@@ -236,7 +238,7 @@ To: Base Sepolia (${baseRecipientAddress})
 	process.on('SIGINT', () => {
 		clearInterval(monitoringInterval);
 		console.log('\nMonitoring stopped.');
-		console.log(`Transfer ID: ${initiateResponse.transferId}`);
+		console.log(`Transfer ID: ${transferID}`);
 		console.log('You can check the status later using the provider.getTransferStatus() method.');
 		process.exit(0);
 	});
