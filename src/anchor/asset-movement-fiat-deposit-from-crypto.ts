@@ -28,7 +28,7 @@ const ARBITRUM_SEPOLIA_CHAIN_ID = 421614n;
 
 // Source asset on the EVM chain. EVM stablecoin forwarding requires the source
 // asset to be an `evm:0x...` contract address, not a Keeta asset.
-const ARBITRUM_SEPOLIA_USDC_ASSET = 'evm:0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d' as const;
+const ARBITRUM_SEPOLIA_USDC_ASSET = 'evm:0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d';
 
 const KEETA_TEST_USD_ASSET = Account.fromPublicKeyString('keeta_any4zllibya6fum3lsoimxmnmeo57nklxlh4c6d6xosfacarfaa3knkiprkmm');
 
@@ -62,7 +62,7 @@ async function main() {
 	const keetaDestination = {
 		type: 'chain',
 		chain: { type: 'keeta', networkId: userClient.network }
-	} as const;	
+	} as const;
 
 	// Find Asset Movement providers that support Arbitrum Sepolia => Keeta USD
 	const providers = await assetMovementClient.getProvidersForTransfer({
