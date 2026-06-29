@@ -1,8 +1,8 @@
 #! /usr/bin/env ts-node
 
 /*
- * Description: Generate a USD withdrawal transaction;
- * Assumes KYC is complete and onboarding has been performed.
+ * Description: Example of using the Keeta Anchor client to withdraw USD from Keeta Test Network to a US bank account;
+ * This example assumes that KYC has already been completed and onboarding has been performed.
  */
 
 import * as KeetaAnchor from '@keetanetwork/anchor';

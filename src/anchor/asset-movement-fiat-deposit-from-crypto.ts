@@ -1,7 +1,7 @@
 #! /usr/bin/env ts-node
 
 /*
-* Description: Example of using the Keeta Anchor Client to move USDC from Arbitrum Sepolia to Keeta Network
+ * Description: Example of using the Keeta Anchor Client to move USDC from Arbitrum Sepolia to USD on Keeta Test Network
  *
  * This example demonstrates:
  * 1. Creating a persistent forwarding address on Arbitrum Sepolia
@@ -59,6 +59,7 @@ async function main() {
 		...logger
 	});
 
+	console.log('Generating persistent forwarding address please wait...');
 	const keetaDestination = {
 		type: 'chain',
 		chain: { type: 'keeta', networkId: userClient.network }
@@ -117,7 +118,7 @@ async function main() {
 ========================================
 Persistent Address: ${persistentAddress.address}
 This address will automatically forward USDC received on Arbitrum Sepolia
-to your Keeta account: ${userAccount.publicKeyString.get()}
+to USD in your Keeta account: ${userAccount.publicKeyString.get()}
 ========================================
 
 HOW TO GET TEST USDC:
@@ -178,7 +179,6 @@ HOW TO GET TEST USDC:
 Completed transaction detected!
  ID: ${tx.id}
  Status: ${tx.status}
- Asset: ${tx.asset}
  From: ${tx.from.location}
  From Value: ${tx.from.value}
  To: ${tx.to.location}

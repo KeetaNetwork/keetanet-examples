@@ -13,7 +13,7 @@ help:
 		target=$${file#src/}; \
 		target=$${target%.ts}; \
 		desc=$$(grep ' Description:' "$$file" | sed 's/^.* Description: //'); \
-		printf '  %-40s - %s\n' "$$target" "$$desc"; \
+		printf '  %-46s - %s\n' "$$target" "$$desc"; \
 	done
 
 node_modules/.done: package.json

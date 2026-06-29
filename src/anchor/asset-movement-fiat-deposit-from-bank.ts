@@ -1,8 +1,8 @@
 #! /usr/bin/env ts-node
 
 /*
- * Description: Request USD bank deposit info (persistent address) for USD;
- * Assumes KYC is complete and onboarding has been performed.
+ * Description: Example of using the Keeta Anchor client to request USD bank deposit info (persistent address) for USD;
+ * This example assumes that KYC has already been completed and onboarding has been performed.
  */
 
 import * as KeetaAnchor from '@keetanetwork/anchor';
