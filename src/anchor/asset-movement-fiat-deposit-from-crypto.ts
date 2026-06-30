@@ -106,7 +106,7 @@ async function main() {
 	}
 
 	// Create a persistent forwarding address on Arbitrum that will
-	// automatically forward received USDC to USD inyour Keeta account
+	// automatically forward received USDC to USD in your Keeta account
 	const persistentAddressResponse = await provider.createPersistentForwardingAddress({
 		account: userAccount,
 		asset: ASSET_PAIR,
