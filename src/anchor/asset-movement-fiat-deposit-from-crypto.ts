@@ -17,28 +17,41 @@ const Account = KeetaAnchor.KeetaNet.lib.Account;
 
 const DEBUG = false;
 const logger = DEBUG ? { logger: console } : {};
-const network = 'test';
 
 /**
+ * To run the example on mainnet use the following configuration
+ * Network: main
+ * Keeta USD Token: keeta_aonxxqry6rknxyb6c5q2ybxk2gt776xlchhcohhyla5kqvinnaduevuxyx3tc
+ *
+ * Arbitrum Mainnet Configuration
+ * Chain ID: 42161n
+ * USDC Contract: 0xaf88d065e77c8cC2239327C5EDb3A432268e5831
+ */
+
+/**
+ * To run the example on testnet use the following configuration
+ * Network: test
+ * Keeta USD Token: keeta_any4zllibya6fum3lsoimxmnmeo57nklxlh4c6d6xosfacarfaa3knkiprkmm
+ *
  * Arbitrum Sepolia Testnet Configuration
- * Chain ID: 421614
+ * Chain ID: 421614n
  * USDC Contract: 0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d
  */
-const ARBITRUM_SEPOLIA_CHAIN_ID = 421614n;
+const network = 'test';
+const ARBITRUM_CHAIN_ID = 421614n;
 
 // Source asset on the EVM chain. EVM stablecoin forwarding requires the source
 // asset to be an `evm:0x...` contract address, not a Keeta asset.
-const ARBITRUM_SEPOLIA_USDC_ASSET = 'evm:0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d';
+const ARBITRUM_USDC_ASSET = 'evm:0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d';
+const KEETA_USD_ASSET = Account.fromPublicKeyString('keeta_any4zllibya6fum3lsoimxmnmeo57nklxlh4c6d6xosfacarfaa3knkiprkmm');
 
-const KEETA_TEST_USD_ASSET = Account.fromPublicKeyString('keeta_any4zllibya6fum3lsoimxmnmeo57nklxlh4c6d6xosfacarfaa3knkiprkmm');
-
-// USDC (on Arbitrum Sepolia) => USD (on Keeta) is a conversion, so the asset is a pair.
-const ASSET_PAIR = { from: ARBITRUM_SEPOLIA_USDC_ASSET, to: KEETA_TEST_USD_ASSET } as const;
+// USDC (on Arbitrum) => USD (on Keeta) is a conversion, so the asset is a pair.
+const ASSET_PAIR = { from: ARBITRUM_USDC_ASSET, to: KEETA_USD_ASSET } as const;
 
 const defaultPhrase = 'bottom alley wash elbow devote believe maximum amount camera way direct globe frost bottom tilt title ship purse always fluid tennis spread lazy track';
 
 async function main() {
-	console.log('Keeta Asset Movement Example: Arbitrum Sepolia USDC => Keeta USD');
+	console.log('Keeta Asset Movement Example: Arbitrum USDC => Keeta USD');
 
 	// Prompt for Keeta seed. The account must already have completed KYC, as the
 	// asset movement provider requires KYC before it will issue a forwarding address.
@@ -65,16 +78,16 @@ async function main() {
 		chain: { type: 'keeta', networkId: userClient.network }
 	} as const;
 
-	// Find Asset Movement providers that support Arbitrum Sepolia => Keeta USD
+	// Find Asset Movement providers that support Arbitrum => Keeta USD
 	const providers = await assetMovementClient.getProvidersForTransfer({
-		// USDC (Arbitrum Sepolia) => USD (Keeta)
+		// USDC (Arbitrum) => USD (Keeta)
 		asset: ASSET_PAIR,
-		// Source: Arbitrum Sepolia (EVM chain with chain ID 421614)
+		// Source: Arbitrum
 		from: {
 			type: 'chain',
 			chain: {
 				type: 'evm',
-				chainId: ARBITRUM_SEPOLIA_CHAIN_ID
+				chainId: ARBITRUM_CHAIN_ID
 			}
 		},
 		// Destination: Keeta Network
@@ -92,14 +105,14 @@ async function main() {
 		throw(new Error('Provider is undefined'));
 	}
 
-	// Create a persistent forwarding address on Base Sepolia that will
-	// automatically forward received USDC to your Keeta account
+	// Create a persistent forwarding address on Arbitrum that will
+	// automatically forward received USDC to USD inyour Keeta account
 	const persistentAddressResponse = await provider.createPersistentForwardingAddress({
 		account: userAccount,
 		asset: ASSET_PAIR,
 		sourceLocation: {
 			type: 'chain',
-			chain: { type: 'evm', chainId: ARBITRUM_SEPOLIA_CHAIN_ID }
+			chain: { type: 'evm', chainId: ARBITRUM_CHAIN_ID }
 		},
 		destinationLocation: keetaDestination,
 		destinationAddress: userAccount.publicKeyString.get()
@@ -111,8 +124,9 @@ async function main() {
 
 	const persistentAddress = persistentAddressResponse;
 
-	// Display the forwarding address
-	console.log(`
+	if (network === 'test') {
+		// Display the forwarding address for Sepolia
+		console.log(`
 ========================================
  YOUR ARBITRUM SEPOLIA FORWARDING ADDRESS
 ========================================
@@ -136,6 +150,17 @@ HOW TO GET TEST USDC:
 5. Request test USDC (usually 20 USDC per request)
 ----------------------------------------
 `);
+	} else {
+		console.log(`
+========================================
+ YOUR ARBITRUM MAINNET FORWARDING ADDRESS
+========================================
+Persistent Address: ${persistentAddress.address}
+This address will automatically forward USDC received on Arbitrum Mainnet
+to USD in your Keeta account: ${userAccount.publicKeyString.get()}
+========================================
+`);
+	}
 
 	// Wait for user confirmation before monitoring transactions
 	const shouldMonitor = await promptUser('Would you like to monitor for incoming transactions? (yes/no): ');
@@ -153,7 +178,7 @@ HOW TO GET TEST USDC:
 							type: 'chain',
 							chain: {
 								type: 'evm',
-								chainId: ARBITRUM_SEPOLIA_CHAIN_ID
+								chainId: ARBITRUM_CHAIN_ID
 							}
 						},
 						persistentAddress: persistentAddress.address.toString()
