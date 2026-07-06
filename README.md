@@ -8,3 +8,7 @@ Feel free to explore the examples and modify them to suit your needs.  If you ha
 Use `make help` to get a list of runnable examples.
 
 Each example can then be run, for example as `make client/accounts-parse-metadata` which corresponds to the `src/client/accounts-parse-metadata.ts` file.
+
+### C# examples
+
+A C# port of selected anchor examples lives in [`csharp/`](csharp/). See [`csharp/README.md`](csharp/README.md) for setup and usage.
