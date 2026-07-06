@@ -130,8 +130,8 @@ IMPORTANT: Before running this example:
 		throw(new Error('No Asset Movement providers found for Keeta => Base Sepolia. Please ensure an Asset Movement anchor is configured to support this transfer.'));
 	}
 
-	// Use the first provider for this example
-	const provider = providers[0];
+	// Use the DEV2 provider which does not require KYC
+	const provider = providers.find((p) => p.providerID.toString() === 'DEV2');
 	if (!provider) {
 		throw(new Error('Provider is undefined'));
 	}
