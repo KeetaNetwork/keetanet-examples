@@ -16,7 +16,7 @@ public sealed class Client
 
 	public static Client FromNetwork(string network) => network switch
 	{
-		"test" => new Client(TestnetEndpoints.NodeApi),
+		"test" => new Client(Constants.NodeApi),
 		_ => throw new ArgumentException($"Unsupported network: {network}", nameof(network)),
 	};
 

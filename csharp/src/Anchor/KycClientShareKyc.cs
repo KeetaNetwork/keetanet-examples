@@ -2,9 +2,7 @@ using System.Text.Json;
 using KeetaNet.Anchor;
 using KeetaNet.Anchor.Crypto;
 using CryptoCertificate = KeetaNet.Anchor.Crypto.Certificate;
-using ConsolePrompt = KeetaNet.Examples.Common.ConsolePrompt;
-using ExampleConstants = KeetaNet.Examples.Common.ExampleConstants;
-using TestnetEndpoints = KeetaNet.Examples.Common.TestnetEndpoints;
+using KeetaNet.Examples.Common;
 using UserClient = KeetaNet.Examples.Network.UserClient;
 using KeetaNet.Examples.Anchor.AssetMovement;
 
@@ -27,7 +25,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 			""");
 
 		using var runtime = WasmRuntime.Load();
-		string seed = ConsolePrompt.ReadLine("Enter your Keeta SEED with KYC completed: ").Trim();
+		string seed = Helper.ReadLine("Enter your Keeta SEED with KYC completed: ").Trim();
 		if (seed.Length == 0)
 		{
 			throw new InvalidOperationException("Invalid seed");
@@ -38,17 +36,17 @@ public sealed class KycClientShareKycExample : IKeetaExample
 
 		using UserClient userClient = UserClient.FromNetwork(Network, userAccount);
 		using AssetMovementClient assetMovementClient = runtime.CreateAssetMovementClient(
-			TestnetEndpoints.NodeApi,
+			Constants.NodeApi,
 			userClient.NetworkAddress,
 			userAccount);
 
 		string keetaDestination = $"chain:keeta:{userClient.Network}";
-		var assetPair = new { from = "USD", to = ExampleConstants.KeetaUsdAsset };
+		var assetPair = new { from = "USD", to = Constants.KeetaUsdAsset };
 
 		IReadOnlyList<AssetProvider> providers = await assetMovementClient.GetProvidersForTransferAsync(
 			new AssetProviderSearch(
 				Asset: assetPair,
-				From: ExampleConstants.BankAccountUsLocation,
+				From: Constants.BankAccountUsLocation,
 				To: keetaDestination),
 			cancellationToken);
 
@@ -61,7 +59,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 		Console.WriteLine($"Using provider: {provider.Id}");
 
 		AssetCreateAddressRequest persistentAddressRequest = new(
-			SourceLocation: ExampleConstants.BankAccountUsLocation,
+			SourceLocation: Constants.BankAccountUsLocation,
 			Asset: assetPair,
 			DestinationLocation: keetaDestination,
 			DestinationAddress: userAccount.Address);
@@ -92,7 +90,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 				tosFlow = shareNeeded.Blocker.TosFlow,
 			}, new JsonSerializerOptions { WriteIndented = true }));
 
-			string proceed = ConsolePrompt.ReadLine("\nShare KYC attributes and retry? (y/n): ");
+			string proceed = Helper.ReadLine("\nShare KYC attributes and retry? (y/n): ");
 			if (!proceed.Trim().Equals("y", StringComparison.OrdinalIgnoreCase))
 			{
 				Console.WriteLine("Exiting without sharing KYC attributes.");
@@ -116,7 +114,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 				&& tosFlow.TryGetProperty("url", out JsonElement tosUrl))
 			{
 				Console.WriteLine($"\nAccept Terms of Service:\n  {tosUrl.GetString()}\n");
-				ConsolePrompt.ReadLine("Press Enter after accepting TOS: ");
+				Helper.ReadLine("Press Enter after accepting TOS: ");
 			}
 
 			await assetMovementClient.ShareKycAttributesAndWaitAsync(
@@ -169,7 +167,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 
 					if (promptBeforeOnboarding)
 					{
-						string proceed = ConsolePrompt.ReadLine("\nComplete onboarding steps and retry? (y/n): ");
+						string proceed = Helper.ReadLine("\nComplete onboarding steps and retry? (y/n): ");
 						if (!proceed.Trim().Equals("y", StringComparison.OrdinalIgnoreCase))
 						{
 							throw;
@@ -249,7 +247,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 		}
 
 		using CryptoCertificate? trustedRoot = requireTrustedChain
-			? runtime.Certificates.Parse(ExampleConstants.KycRootCaPem)
+			? runtime.Certificates.Parse(Constants.KycRootCaPem)
 			: null;
 		List<string> rejections = new();
 

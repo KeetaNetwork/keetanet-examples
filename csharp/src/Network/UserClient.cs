@@ -35,9 +35,9 @@ public sealed class UserClient : IDisposable
 			"test" => new UserClient(
 				Client.FromNetwork(network),
 				signer,
-				TestnetEndpoints.MetadataRoot,
-				TestnetEndpoints.BaseTokenAddress,
-				TestnetEndpoints.NetworkId),
+				Constants.MetadataRoot,
+				Constants.BaseTokenAddress,
+				Constants.NetworkId),
 			_ => throw new ArgumentException($"Unsupported network: {network}", nameof(network)),
 		};
 

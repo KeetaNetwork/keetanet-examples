@@ -3,10 +3,7 @@ using System.Numerics;
 using System.Text.Json;
 using KeetaNet.Anchor;
 using KeetaNet.Anchor.Crypto;
-using ConsolePrompt = KeetaNet.Examples.Common.ConsolePrompt;
-using ExampleConstants = KeetaNet.Examples.Common.ExampleConstants;
-using ExampleHelper = KeetaNet.Examples.Common.ExampleHelper;
-using TestnetEndpoints = KeetaNet.Examples.Common.TestnetEndpoints;
+using KeetaNet.Examples.Common;
 using UserClient = KeetaNet.Examples.Network.UserClient;
 
 namespace KeetaNet.Examples.Anchor;
@@ -32,13 +29,13 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 			""");
 
 		using var runtime = WasmRuntime.Load();
-		string seedInput = ConsolePrompt.ReadLine("Enter your Keeta SEED (or press Enter for new random seed): ").Trim();
+		string seedInput = Helper.ReadLine("Enter your Keeta SEED (or press Enter for new random seed): ").Trim();
 		string seed = seedInput.Length == 0 ? runtime.Accounts.GenerateRandomSeed() : seedInput;
 		using Account userAccount = runtime.Accounts.FromSeed(seed, 0, "ecdsa_secp256k1");
 
 		Console.WriteLine($"Keeta Account: {userAccount.Address}");
 
-		string baseRecipientAddress = ConsolePrompt.ReadLine("Enter the Base Sepolia wallet address to send USDC to: ").Trim();
+		string baseRecipientAddress = Helper.ReadLine("Enter the Base Sepolia wallet address to send USDC to: ").Trim();
 		if (baseRecipientAddress.Length != 42 || !baseRecipientAddress.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
 		{
 			throw new InvalidOperationException("Invalid Base Sepolia address. Must be a valid Ethereum address (0x...)");
@@ -49,15 +46,15 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 		BigInteger baseTokenBalance = await userClient.BalanceAsync(userClient.BaseToken, cancellationToken);
 		if (baseTokenBalance == BigInteger.Zero)
 		{
-			if (!await ExampleHelper.GetFaucetTokensAsync(userAccount, Network, cancellationToken))
+			if (!await Helper.GetFaucetTokensAsync(userAccount, Network, cancellationToken))
 			{
 				throw new InvalidOperationException("Failed to get Faucet Tokens");
 			}
 		}
 
-		using Account usdcToken = runtime.Accounts.FromAccount(ExampleConstants.KeetaUsdcAsset);
+		using Account usdcToken = runtime.Accounts.FromAccount(Constants.KeetaUsdcAsset);
 		BigInteger currentBalance = await userClient.BalanceAsync(usdcToken, cancellationToken);
-		Console.WriteLine($"\nCurrent USDC Balance: {currentBalance} ({ExampleHelper.FormatDecimals(currentBalance, UsdcDecimals)} USDC)");
+		Console.WriteLine($"\nCurrent USDC Balance: {currentBalance} ({Helper.FormatDecimals(currentBalance, UsdcDecimals)} USDC)");
 
 		if (currentBalance == BigInteger.Zero)
 		{
@@ -65,8 +62,8 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 				"You have no USDC balance on Keeta Test Network. Please run asset-movement-evm-inbound.ts first to get USDC tokens.");
 		}
 
-		string amountInput = ConsolePrompt.ReadLine(
-			$"How much USDC do you want to send? (in USDC, max {ExampleHelper.FormatDecimals(currentBalance, UsdcDecimals)}): ").Trim();
+		string amountInput = Helper.ReadLine(
+			$"How much USDC do you want to send? (in USDC, max {Helper.FormatDecimals(currentBalance, UsdcDecimals)}): ").Trim();
 		if (!decimal.TryParse(amountInput, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal amountInUsdc)
 			|| amountInUsdc <= 0)
 		{
@@ -77,11 +74,11 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 		if (amountToSend > currentBalance)
 		{
 			throw new InvalidOperationException(
-				$"Insufficient balance. You only have {ExampleHelper.FormatDecimals(currentBalance, UsdcDecimals)} USDC");
+				$"Insufficient balance. You only have {Helper.FormatDecimals(currentBalance, UsdcDecimals)} USDC");
 		}
 
 		using AssetMovementClient assetMovementClient = runtime.CreateAssetMovementClient(
-			TestnetEndpoints.NodeApi,
+			Constants.NodeApi,
 			userClient.NetworkAddress,
 			userAccount);
 
@@ -89,9 +86,9 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 
 		IReadOnlyList<AssetProvider> providers = await assetMovementClient.GetProvidersForTransferAsync(
 			new AssetProviderSearch(
-				ExampleConstants.KeetaUsdcAsset,
+				Constants.KeetaUsdcAsset,
 				keetaSource,
-				ExampleConstants.BaseSepoliaLocation),
+				Constants.BaseSepoliaLocation),
 			cancellationToken);
 
 		if (providers.Count == 0)
@@ -100,7 +97,7 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 				"No Asset Movement providers found for Keeta => Base Sepolia. Please ensure an Asset Movement anchor is configured to support this transfer.");
 		}
 
-		AssetProvider? provider = providers.FirstOrDefault(p => p.Id == ExampleConstants.Dev2ProviderId);
+		AssetProvider? provider = providers.FirstOrDefault(p => p.Id == Constants.Dev2ProviderId);
 		if (provider is null)
 		{
 			throw new InvalidOperationException("Provider is undefined");
@@ -109,9 +106,9 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 		AssetTransfer transfer = await assetMovementClient.InitiateTransferAsync(
 			provider,
 			new AssetTransferRequest(
-				ExampleConstants.KeetaUsdcAsset,
+				Constants.KeetaUsdcAsset,
 				new AssetTransferSource(keetaSource),
-				new AssetTransferDestination(ExampleConstants.BaseSepoliaLocation, baseRecipientAddress),
+				new AssetTransferDestination(Constants.BaseSepoliaLocation, baseRecipientAddress),
 				amountToSend.ToString(CultureInfo.InvariantCulture)),
 			cancellationToken);
 
@@ -174,14 +171,14 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 						  TRANSFER COMPLETED SUCCESSFULLY!
 						========================================
 						Transfer ID: {transfer.Id}
-						Amount: {ExampleHelper.FormatDecimals(amountToSend, UsdcDecimals)} USDC
+						Amount: {Helper.FormatDecimals(amountToSend, UsdcDecimals)} USDC
 						From: Keeta Test Network
 						To: Base Sepolia ({baseRecipientAddress})
 						========================================
 						""");
 
 					BigInteger finalBalance = await userClient.BalanceAsync(usdcToken, monitorToken);
-					Console.WriteLine($"Final USDC Balance on Keeta: {ExampleHelper.FormatDecimals(finalBalance, UsdcDecimals)} USDC");
+					Console.WriteLine($"Final USDC Balance on Keeta: {Helper.FormatDecimals(finalBalance, UsdcDecimals)} USDC");
 					return 0;
 				}
 

@@ -56,7 +56,7 @@ public static class LedgerPublisher
 	internal static string? GetHeadHash(string account, CancellationToken cancellationToken)
 	{
 		using HttpResponseMessage response = Http.GetAsync(
-			$"{TestnetEndpoints.NodeApi}/node/ledger/account/{account}",
+			$"{Constants.NodeApi}/node/ledger/account/{account}",
 			cancellationToken).GetAwaiter().GetResult();
 		if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
 		{
@@ -111,7 +111,7 @@ public static class LedgerPublisher
 	{
 		byte[] voteBytes = Convert.FromBase64String(temporaryVoteBase64);
 		using Vote vote = Vote.FromBytes(runtime, voteBytes);
-		using Account baseToken = runtime.Accounts.FromAccount(TestnetEndpoints.BaseTokenAddress);
+		using Account baseToken = runtime.Accounts.FromAccount(Constants.BaseTokenAddress);
 		using Operation? feeOperation = vote.CreateFeeSend(baseToken);
 		if (feeOperation is null)
 		{
@@ -125,7 +125,7 @@ public static class LedgerPublisher
 			runtime,
 			feeSigner,
 			feeSigner,
-			TestnetEndpoints.NetworkId,
+			Constants.NetworkId,
 			feeOperation,
 			purpose: "fee",
 			headHashHex: previous,
@@ -165,7 +165,7 @@ public static class LedgerPublisher
 
 			string stapleBase64 = Convert.ToBase64String(staple);
 
-			using var request = new HttpRequestMessage(HttpMethod.Post, $"{TestnetEndpoints.NodeApi}/node/publish")
+			using var request = new HttpRequestMessage(HttpMethod.Post, $"{Constants.NodeApi}/node/publish")
 			{
 				Content = new StringContent(
 					JsonSerializer.Serialize(new PublishRequest(stapleBase64)),
@@ -191,7 +191,7 @@ public static class LedgerPublisher
 		CancellationToken cancellationToken)
 	{
 		List<string> votes = new();
-		foreach (string api in TestnetEndpoints.RepresentativeApis)
+		foreach (string api in Constants.RepresentativeApis)
 		{
 			try
 			{

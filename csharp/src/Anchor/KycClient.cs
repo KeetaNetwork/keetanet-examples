@@ -2,10 +2,7 @@ using KeetaNet.Anchor;
 using KeetaNet.Anchor.Crypto;
 using CryptoCertificate = KeetaNet.Anchor.Crypto.Certificate;
 using IssuedCertificate = KeetaNet.Anchor.Certificate;
-using ConsolePrompt = KeetaNet.Examples.Common.ConsolePrompt;
-using ExampleConstants = KeetaNet.Examples.Common.ExampleConstants;
-using ExampleHelper = KeetaNet.Examples.Common.ExampleHelper;
-using TestnetEndpoints = KeetaNet.Examples.Common.TestnetEndpoints;
+using KeetaNet.Examples.Common;
 using UserClient = KeetaNet.Examples.Network.UserClient;
 
 namespace KeetaNet.Examples.Anchor;
@@ -36,13 +33,13 @@ public sealed class KycClientExample : IKeetaExample
 
 		using UserClient userClient = UserClient.FromNetwork(Network, userAccount);
 
-		if (!await ExampleHelper.GetFaucetTokensAsync(userAccount, Network, cancellationToken))
+		if (!await Helper.GetFaucetTokensAsync(userAccount, Network, cancellationToken))
 		{
 			throw new InvalidOperationException("Failed to get Faucet Tokens");
 		}
 
 		using KycClient kycClient = runtime.CreateKycClient(
-			TestnetEndpoints.NodeApi,
+			Constants.NodeApi,
 			userClient.NetworkAddress,
 			userAccount);
 
@@ -61,7 +58,7 @@ public sealed class KycClientExample : IKeetaExample
 		const string countryCode = "US";
 		Console.WriteLine($"\nUsing country: {countryCode}\n");
 
-		KycProvider? provider = providers.FirstOrDefault(candidate => candidate.Id == ExampleConstants.FootprintProviderId);
+		KycProvider? provider = providers.FirstOrDefault(candidate => candidate.Id == Constants.FootprintProviderId);
 		if (provider is null)
 		{
 			throw new InvalidOperationException("Footprint KYC provider not found");
@@ -100,7 +97,7 @@ public sealed class KycClientExample : IKeetaExample
 			========================================
 			""");
 
-		string shouldPoll = ConsolePrompt.ReadLine(
+		string shouldPoll = Helper.ReadLine(
 			"Have you completed the verification? Press Enter to start polling for your certificate (or type \"skip\" to exit): ");
 		if (shouldPoll.Trim().Equals("skip", StringComparison.OrdinalIgnoreCase))
 		{

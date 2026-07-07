@@ -1,15 +1,18 @@
-using System.Net.Http;
-using KeetaNet.Anchor.Crypto;
-using KeetaNet.Examples.Common;
-using KeetaNet.Examples.Network;
-
 using System.Globalization;
 using System.Numerics;
+using KeetaNet.Anchor.Crypto;
+using KeetaNet.Examples.Network;
 
 namespace KeetaNet.Examples.Common;
 
-public static class ExampleHelper
+public static class Helper
 {
+	public static string ReadLine(string prompt)
+	{
+		Console.Write(prompt);
+		return Console.In.ReadLine() ?? string.Empty;
+	}
+
 	public static async Task<bool> WaitForResultAsync(
 		Func<Task<bool>> predicate,
 		TimeSpan? timeout = null,
@@ -40,13 +43,13 @@ public static class ExampleHelper
 		}
 
 		Client client = Client.FromNetwork(network);
-		BigInteger initial = await client.GetBalanceAsync(account.Address, TestnetEndpoints.BaseTokenAddress, cancellationToken)
+		BigInteger initial = await client.GetBalanceAsync(account.Address, Constants.BaseTokenAddress, cancellationToken)
 			.ConfigureAwait(false);
 		BigInteger expectedCredit = BigInteger.Pow(10, 9) * 5;
 
 		try
 		{
-			using var request = new HttpRequestMessage(HttpMethod.Post, TestnetEndpoints.FaucetUrl)
+			using var request = new HttpRequestMessage(HttpMethod.Post, Constants.FaucetUrl)
 			{
 				Content = new FormUrlEncodedContent(new Dictionary<string, string>
 				{
@@ -58,6 +61,7 @@ public static class ExampleHelper
 			using var http = new HttpClient();
 			using HttpResponseMessage response = await http.SendAsync(request, cancellationToken).ConfigureAwait(false);
 			string body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+
 			if (response.IsSuccessStatusCode && body.Contains("Sent ", StringComparison.OrdinalIgnoreCase))
 			{
 				Console.WriteLine($"Requesting tokens from faucet for: {account.Address}");
@@ -75,10 +79,17 @@ public static class ExampleHelper
 
 		return await WaitForResultAsync(async () =>
 		{
-			BigInteger current = await client.GetBalanceAsync(account.Address, TestnetEndpoints.BaseTokenAddress, cancellationToken)
-				.ConfigureAwait(false);
-			return current >= initial + expectedCredit;
-		}, timeout: TimeSpan.FromSeconds(30), cancellationToken: cancellationToken).ConfigureAwait(false);
+			try
+			{
+				BigInteger current = await client.GetBalanceAsync(account.Address, Constants.BaseTokenAddress, cancellationToken)
+					.ConfigureAwait(false);
+				return current >= initial + expectedCredit;
+			}
+			catch (HttpRequestException)
+			{
+				return false;
+			}
+		}, timeout: TimeSpan.FromSeconds(60), cancellationToken: cancellationToken).ConfigureAwait(false);
 	}
 
 	public static string FormatDecimals(BigInteger amount, int decimals)

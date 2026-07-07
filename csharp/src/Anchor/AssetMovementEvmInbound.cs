@@ -1,11 +1,8 @@
 using System.Text.Json;
 using KeetaNet.Anchor;
 using KeetaNet.Anchor.Crypto;
-using ConsolePrompt = KeetaNet.Examples.Common.ConsolePrompt;
-using ExampleConstants = KeetaNet.Examples.Common.ExampleConstants;
-using TestnetEndpoints = KeetaNet.Examples.Common.TestnetEndpoints;
-using UserClient = KeetaNet.Examples.Network.UserClient;
-using TokenBalance = KeetaNet.Examples.Network.TokenBalance;
+using KeetaNet.Examples.Common;
+using KeetaNet.Examples.Network;
 
 namespace KeetaNet.Examples.Anchor;
 
@@ -32,7 +29,7 @@ public sealed class AssetMovementEvmInboundExample : IKeetaExample
 		using UserClient userClient = UserClient.FromNetwork(Network, userAccount);
 
 		using AssetMovementClient assetMovementClient = runtime.CreateAssetMovementClient(
-			TestnetEndpoints.NodeApi,
+			Constants.NodeApi,
 			userClient.NetworkAddress,
 			userAccount);
 
@@ -40,8 +37,8 @@ public sealed class AssetMovementEvmInboundExample : IKeetaExample
 
 		IReadOnlyList<AssetProvider> providers = await assetMovementClient.GetProvidersForTransferAsync(
 			new AssetProviderSearch(
-				ExampleConstants.KeetaUsdcAsset,
-				ExampleConstants.BaseSepoliaLocation,
+				Constants.KeetaUsdcAsset,
+				Constants.BaseSepoliaLocation,
 				keetaDestination),
 			cancellationToken);
 
@@ -51,7 +48,7 @@ public sealed class AssetMovementEvmInboundExample : IKeetaExample
 				"No Asset Movement providers found. This example requires an Asset Movement anchor to be configured.");
 		}
 
-		AssetProvider? provider = providers.FirstOrDefault(p => p.Id == ExampleConstants.Dev2ProviderId);
+		AssetProvider? provider = providers.FirstOrDefault(p => p.Id == Constants.Dev2ProviderId);
 		if (provider is null)
 		{
 			throw new InvalidOperationException("Provider is undefined");
@@ -60,8 +57,8 @@ public sealed class AssetMovementEvmInboundExample : IKeetaExample
 		JsonElement persistentAddressResponse = await assetMovementClient.CreatePersistentForwardingAddressAsync(
 			provider,
 			new AssetCreateAddressRequest(
-				SourceLocation: ExampleConstants.BaseSepoliaLocation,
-				Asset: ExampleConstants.KeetaUsdcAsset,
+				SourceLocation: Constants.BaseSepoliaLocation,
+				Asset: Constants.KeetaUsdcAsset,
 				DestinationLocation: keetaDestination,
 				DestinationAddress: userAccount.Address),
 			cancellationToken);
@@ -95,7 +92,7 @@ public sealed class AssetMovementEvmInboundExample : IKeetaExample
 			----------------------------------------
 			""");
 
-		string shouldMonitor = ConsolePrompt.ReadLine("Would you like to monitor for incoming transactions? (yes/no): ");
+		string shouldMonitor = Helper.ReadLine("Would you like to monitor for incoming transactions? (yes/no): ");
 
 		if (new[] { "yes", "y" }.Contains(shouldMonitor.ToLowerInvariant()))
 		{
@@ -123,7 +120,7 @@ public sealed class AssetMovementEvmInboundExample : IKeetaExample
 							PersistentAddresses:
 							[
 								new AssetPersistentAddressFilter(
-									ExampleConstants.BaseSepoliaLocation,
+									Constants.BaseSepoliaLocation,
 									persistentAddress),
 							]),
 						monitorToken);
