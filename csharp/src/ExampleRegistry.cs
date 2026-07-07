@@ -17,5 +17,6 @@ public static class ExampleRegistry
 		new Anchor.AssetMovementEvmInboundExample(),
 		new Anchor.AssetMovementEvmOutboundExample(),
 		new Anchor.AssetMovementFiatDepositFromCryptoExample(),
+		new Anchor.AssetMovementFiatDepositFromBankExample(),
 	];
 }
