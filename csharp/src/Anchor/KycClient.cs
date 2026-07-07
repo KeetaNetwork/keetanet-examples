@@ -147,8 +147,8 @@ public sealed class KycClientExample : IKeetaExample
 					cancellationToken: cancellationToken).ConfigureAwait(false);
 			}
 
-			IReadOnlyList<Network.OnChainCertificate> onChain =
-				await userClient.Client.GetAllCertificatesAsync(userAccount.Address, cancellationToken);
+			IReadOnlyList<IssuedCertificate> onChain =
+				await kycClient.GetAllCertificatesAsync(userAccount, cancellationToken);
 			Console.WriteLine($"\nOn-chain certificates for this account: {onChain.Count}");
 			Console.WriteLine(
 				"\nKYC verification complete! The KYC certificate is now attached to your account on-chain.");

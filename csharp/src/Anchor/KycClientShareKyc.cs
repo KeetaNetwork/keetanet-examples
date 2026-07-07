@@ -2,6 +2,7 @@ using System.Text.Json;
 using KeetaNet.Anchor;
 using KeetaNet.Anchor.Crypto;
 using CryptoCertificate = KeetaNet.Anchor.Crypto.Certificate;
+using OnChainCertificate = KeetaNet.Anchor.Certificate;
 using KeetaNet.Examples.Common;
 using UserClient = KeetaNet.Examples.Network.UserClient;
 using KeetaNet.Examples.Anchor.AssetMovement;
@@ -35,6 +36,10 @@ public sealed class KycClientShareKycExample : IKeetaExample
 		Console.WriteLine($"Keeta Account: {userAccount.Address}\n");
 
 		using UserClient userClient = UserClient.FromNetwork(Network, userAccount);
+		using KycClient kycClient = runtime.CreateKycClient(
+			Constants.NodeApi,
+			userClient.NetworkAddress,
+			userAccount);
 		using AssetMovementClient assetMovementClient = runtime.CreateAssetMovementClient(
 			Constants.NodeApi,
 			userClient.NetworkAddress,
@@ -99,6 +104,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 
 			using SharableCertificateAttributes sharable = await BuildSharableKycAttributesAsync(
 				runtime,
+				kycClient,
 				userClient,
 				userAccount,
 				shareNeeded.Blocker,
@@ -197,6 +203,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 
 	private static async Task<SharableCertificateAttributes> BuildSharableKycAttributesAsync(
 		WasmRuntime runtime,
+		KycClient kycClient,
 		UserClient userClient,
 		Account userAccount,
 		KycShareNeededBlocker blocker,
@@ -204,18 +211,20 @@ public sealed class KycClientShareKycExample : IKeetaExample
 	{
 		(KycCertificate selected, IReadOnlyList<CryptoCertificate> intermediates) = await SelectOnChainKycCertificateAsync(
 			runtime,
-			userClient,
+			kycClient,
 			userAccount,
 			blocker.RequiresTrustedChain,
 			cancellationToken);
 
 		try
 		{
-			SharableCertificateAttributes sharable = runtime.Sharables.FromCertificate(
+			SharableCertificateAttributes sharable = SharableKycBuilder.Build(
+				runtime,
 				selected,
 				userAccount,
 				intermediates,
-				blocker.NeededAttributes);
+				blocker.NeededAttributes ?? [],
+				cancellationToken);
 
 			foreach (string principalAddress in blocker.ShareWithPrincipals)
 			{
@@ -237,13 +246,13 @@ public sealed class KycClientShareKycExample : IKeetaExample
 
 	private static async Task<(KycCertificate Certificate, IReadOnlyList<CryptoCertificate> Intermediates)> SelectOnChainKycCertificateAsync(
 		WasmRuntime runtime,
-		UserClient userClient,
+		KycClient kycClient,
 		Account userAccount,
 		bool requireTrustedChain,
 		CancellationToken cancellationToken)
 	{
-		IReadOnlyList<Network.OnChainCertificate> records =
-			await userClient.Client.GetAllCertificatesAsync(userAccount.Address, cancellationToken);
+		IReadOnlyList<OnChainCertificate> records =
+			await kycClient.GetAllCertificatesAsync(userAccount, cancellationToken);
 		if (records.Count == 0)
 		{
 			throw new InvalidOperationException("No on-chain KYC certificates found for this account");
@@ -254,18 +263,15 @@ public sealed class KycClientShareKycExample : IKeetaExample
 			: null;
 		List<string> rejections = new();
 
-		foreach (Network.OnChainCertificate record in records)
+		foreach (OnChainCertificate record in records)
 		{
 			List<CryptoCertificate> intermediateCertificates = new();
-			if (record.IntermediatePems is not null)
+			foreach (string intermediatePem in record.Intermediates)
 			{
-				foreach (string intermediatePem in record.IntermediatePems)
-				{
-					intermediateCertificates.Add(runtime.Certificates.Parse(intermediatePem));
-				}
+				intermediateCertificates.Add(runtime.Certificates.Parse(intermediatePem));
 			}
 
-			KycCertificate certificate = runtime.KycCertificates.Parse(record.CertificatePem);
+			KycCertificate certificate = runtime.KycCertificates.Parse(record.Value);
 			try
 			{
 				if (requireTrustedChain && trustedRoot is not null)

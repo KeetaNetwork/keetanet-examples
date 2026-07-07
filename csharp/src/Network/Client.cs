@@ -62,31 +62,6 @@ public sealed class Client
 			.ToArray();
 	}
 
-	// TODO: Remove this once it's added to the KYCClient
-	public async Task<IReadOnlyList<OnChainCertificate>> GetAllCertificatesAsync(
-		string account,
-		CancellationToken cancellationToken = default)
-	{
-		using HttpResponseMessage response = await Http.GetAsync(
-			$"{_apiUrl}/node/ledger/account/{account}/certificates",
-			cancellationToken).ConfigureAwait(false);
-		response.EnsureSuccessStatusCode();
-
-		await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-		CertificateListJson? payload = await JsonSerializer.DeserializeAsync<CertificateListJson>(
-			stream,
-			cancellationToken: cancellationToken).ConfigureAwait(false);
-
-		if (payload?.Certificates is null)
-		{
-			return Array.Empty<OnChainCertificate>();
-		}
-
-		return payload.Certificates
-			.Select(entry => new OnChainCertificate(entry.Certificate, entry.Intermediates))
-			.ToArray();
-	}
-
 	internal static BigInteger ParseBalance(string balance)
 	{
 		if (!balance.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
@@ -116,11 +91,4 @@ public sealed class Client
 	private sealed record BalanceEntryJson(
 		[property: JsonPropertyName("token")] string Token,
 		[property: JsonPropertyName("balance")] string Balance);
-
-	private sealed record CertificateListJson(
-		[property: JsonPropertyName("certificates")] CertificateEntryJson[] Certificates);
-
-	private sealed record CertificateEntryJson(
-		[property: JsonPropertyName("certificate")] string Certificate,
-		[property: JsonPropertyName("intermediates")] string[]? Intermediates);
 }
