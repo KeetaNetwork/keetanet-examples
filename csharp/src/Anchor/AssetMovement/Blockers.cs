@@ -19,6 +19,16 @@ public static class Blockers
 			.Select(TryParseUserActionNeeded)
 			.FirstOrDefault(blocker => blocker is not null);
 
+	public static KycShareNeededBlocker? TryParseKycShareNeeded(KeetaException error) =>
+		error.Code == KycShareNeededCode
+			? TryParseKycShareNeeded(ParseExceptionPayload(error))
+			: null;
+
+	public static UserActionNeededBlocker? TryParseUserActionNeeded(KeetaException error) =>
+		error.Code == UserActionNeededCode
+			? TryParseUserActionNeeded(ParseExceptionPayload(error))
+			: null;
+
 	public static KycShareNeededBlocker? TryParseKycShareNeeded(JsonElement blocker)
 	{
 		if (blocker.TryGetProperty("type", out JsonElement type) && type.GetString() == "kycShareNeeded")
@@ -49,6 +59,14 @@ public static class Blockers
 		}
 
 		return null;
+	}
+
+	private static JsonElement ParseExceptionPayload(KeetaException error)
+	{
+		int separator = error.Message.IndexOf(": ", StringComparison.Ordinal);
+		string payload = separator < 0 ? error.Message : error.Message[(separator + 2)..];
+		using JsonDocument document = JsonDocument.Parse(payload);
+		return document.RootElement.Clone();
 	}
 
 	private static KycShareNeededBlocker ParseKycShareNeeded(JsonElement blocker)

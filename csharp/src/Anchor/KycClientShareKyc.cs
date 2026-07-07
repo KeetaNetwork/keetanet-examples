@@ -121,6 +121,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 				provider,
 				new AssetShareKycRequest(sharable.ToPem()),
 				cancellationToken: cancellationToken);
+
 			Console.WriteLine("KYC attributes shared.\n");
 
 			JsonElement createdAddress = await CreatePersistentForwardingAddressWithOnboardingAsync(
@@ -156,36 +157,38 @@ public sealed class KycClientShareKycExample : IKeetaExample
 					request,
 					cancellationToken);
 			}
-			catch (KeetaException error) when (error.Code == "SERVICE")
+			catch (KeetaException error) when (error.Code == Blockers.KycShareNeededCode)
 			{
-				AssetAccountStatus status = await assetMovementClient.GetAccountStatusAsync(provider, cancellationToken);
-				UserActionNeededBlocker? userActionNeeded = Blockers.FindUserActionNeeded(status);
-				if (userActionNeeded is not null)
-				{
-					Console.WriteLine("Onboarding steps required:");
-					Console.WriteLine(JsonSerializer.Serialize(userActionNeeded.ActionsNeeded, new JsonSerializerOptions { WriteIndented = true }));
-
-					if (promptBeforeOnboarding)
-					{
-						string proceed = Helper.ReadLine("\nComplete onboarding steps and retry? (y/n): ");
-						if (!proceed.Trim().Equals("y", StringComparison.OrdinalIgnoreCase))
-						{
-							throw;
-						}
-					}
-
-					await UserActions.ExecuteAsync(runtime, userClient, userActionNeeded, cancellationToken);
-					Console.WriteLine("Onboarding steps completed.\n");
-					continue;
-				}
-
-				KycShareNeededBlocker? kycShareNeeded = Blockers.FindKycShareNeeded(status);
+				KycShareNeededBlocker? kycShareNeeded = Blockers.TryParseKycShareNeeded(error);
 				if (kycShareNeeded is not null)
 				{
 					throw new KycShareNeededException(kycShareNeeded);
 				}
 
 				throw;
+			}
+			catch (KeetaException error) when (error.Code == Blockers.UserActionNeededCode)
+			{
+				UserActionNeededBlocker? userActionNeeded = Blockers.TryParseUserActionNeeded(error);
+				if (userActionNeeded is null)
+				{
+					throw;
+				}
+
+				Console.WriteLine("Onboarding steps required:");
+				Console.WriteLine(JsonSerializer.Serialize(userActionNeeded.ActionsNeeded, new JsonSerializerOptions { WriteIndented = true }));
+
+				if (promptBeforeOnboarding)
+				{
+					string proceed = Helper.ReadLine("\nComplete onboarding steps and retry? (y/n): ");
+					if (!proceed.Trim().Equals("y", StringComparison.OrdinalIgnoreCase))
+					{
+						throw;
+					}
+				}
+
+				await UserActions.ExecuteAsync(runtime, userClient, userActionNeeded, cancellationToken);
+				Console.WriteLine("Onboarding steps completed.\n");
 			}
 		}
 
@@ -217,7 +220,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 			foreach (string principalAddress in blocker.ShareWithPrincipals)
 			{
 				using Account principal = runtime.Accounts.FromAccount(principalAddress);
-				sharable.GrantAccess(new[] { principal });
+				sharable.GrantAccess([principal]);
 			}
 
 			return sharable;
@@ -262,9 +265,9 @@ public sealed class KycClientShareKycExample : IKeetaExample
 				}
 			}
 
+			KycCertificate certificate = runtime.KycCertificates.Parse(record.CertificatePem);
 			try
 			{
-				KycCertificate certificate = runtime.KycCertificates.Parse(record.CertificatePem);
 				if (requireTrustedChain && trustedRoot is not null)
 				{
 					if (!certificate.Verify(
@@ -273,16 +276,25 @@ public sealed class KycClientShareKycExample : IKeetaExample
 						DateTimeOffset.UtcNow))
 					{
 						using CryptoCertificate baseCertificate = certificate.Base();
-						string issuer = baseCertificate.Issuer;
+						rejections.Add($"chain not trusted (issuer DN: {baseCertificate.Issuer})");
 						certificate.Dispose();
-						rejections.Add($"chain not trusted (issuer DN: {issuer})");
+						foreach (CryptoCertificate intermediate in intermediateCertificates)
+						{
+							intermediate.Dispose();
+						}
+
 						continue;
 					}
 				}
 				else if (!certificate.IsValidAt(DateTimeOffset.UtcNow))
 				{
-					certificate.Dispose();
 					rejections.Add("certificate not valid at current time");
+					certificate.Dispose();
+					foreach (CryptoCertificate intermediate in intermediateCertificates)
+					{
+						intermediate.Dispose();
+					}
+
 					continue;
 				}
 
@@ -291,9 +303,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 			catch (Exception error)
 			{
 				rejections.Add(error.Message);
-			}
-			finally
-			{
+				certificate.Dispose();
 				foreach (CryptoCertificate intermediate in intermediateCertificates)
 				{
 					intermediate.Dispose();
