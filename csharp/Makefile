@@ -9,7 +9,8 @@ EXAMPLES := \
 	anchor/kyc-client \
 	anchor/kyc-client-sharekyc \
 	anchor/asset-movement-evm-inbound \
-	anchor/asset-movement-evm-outbound
+	anchor/asset-movement-evm-outbound \
+	anchor/asset-movement-fiat-deposit-from-crypto
 
 default: help
 

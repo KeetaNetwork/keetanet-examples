@@ -16,5 +16,6 @@ public static class ExampleRegistry
 		new Anchor.KycClientShareKycExample(),
 		new Anchor.AssetMovementEvmInboundExample(),
 		new Anchor.AssetMovementEvmOutboundExample(),
+		new Anchor.AssetMovementFiatDepositFromCryptoExample(),
 	];
 }

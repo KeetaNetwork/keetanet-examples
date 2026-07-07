@@ -33,6 +33,10 @@ public static class Constants
 
 	public const string BaseSepoliaLocation = "chain:evm:84532";
 
+	public const string ArbitrumSepoliaLocation = "chain:evm:421614";
+
+	public const string ArbitrumUsdcAsset = "evm:0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d";
+
 	public const string KeetaTestNetworkLocation = "chain:keeta:1413829460";
 
 	public const string Dev2ProviderId = "DEV2";
