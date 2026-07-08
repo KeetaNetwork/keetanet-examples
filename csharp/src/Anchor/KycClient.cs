@@ -42,8 +42,9 @@ public sealed class KycClientExample : IKeetaExample
 			Constants.NodeApi,
 			userClient.NetworkAddress,
 			userAccount);
+		using NodeClient nodeClient = runtime.CreateNodeClient(Constants.NodeApi);
 
-		IReadOnlyList<KycProvider> providers = await kycClient.GetProvidersAsync(Countries, cancellationToken);
+		IReadOnlyList<KycProvider> providers = await kycClient.GetProviders(Countries, cancellationToken);
 		Console.WriteLine(
 			"Supported Countries: {0}",
 			string.Join(", ", providers
@@ -67,7 +68,7 @@ public sealed class KycClientExample : IKeetaExample
 		using CryptoCertificate providerCa = kycClient.GetCA(provider);
 		Console.WriteLine($"Found KYC provider: {provider.Id} ({providerCa.Subject})");
 
-		VerificationOutcome created = await kycClient.StartVerificationAsync(provider, Countries, cancellationToken: cancellationToken);
+		VerificationOutcome created = await kycClient.StartVerification(provider, Countries, cancellationToken: cancellationToken);
 		if (created.Ready is null)
 		{
 			throw new InvalidOperationException("Verification was not ready immediately after creation");
@@ -108,7 +109,7 @@ public sealed class KycClientExample : IKeetaExample
 		Console.WriteLine("Polling for KYC certificate...");
 		while (!cancellationToken.IsCancellationRequested)
 		{
-			CertificatesOutcome results = await kycClient.GetCertificatesAsync(provider, verification.Id, cancellationToken);
+			CertificatesOutcome results = await kycClient.GetCertificates(provider, verification.Id, cancellationToken);
 			if (results.Ready is null)
 			{
 				Console.Write('.');
@@ -148,7 +149,7 @@ public sealed class KycClientExample : IKeetaExample
 			}
 
 			IReadOnlyList<IssuedCertificate> onChain =
-				await kycClient.GetAllCertificatesAsync(userAccount, cancellationToken);
+				await nodeClient.GetAllCertificates(userAccount, cancellationToken);
 			Console.WriteLine($"\nOn-chain certificates for this account: {onChain.Count}");
 			Console.WriteLine(
 				"\nKYC verification complete! The KYC certificate is now attached to your account on-chain.");

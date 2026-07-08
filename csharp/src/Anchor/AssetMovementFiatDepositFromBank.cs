@@ -47,9 +47,9 @@ public sealed class AssetMovementFiatDepositFromBankExample : IKeetaExample
 			userAccount);
 
 		string keetaDestination = $"chain:keeta:{userClient.Network}";
-		var assetPair = new { from = "USD", to = Constants.KeetaUsdAsset };
+		AssetOrPair assetPair = AssetOrPair.Pair("USD", Constants.KeetaUsdAsset);
 
-		IReadOnlyList<AssetProvider> providers = await assetMovementClient.GetProvidersForTransferAsync(
+		IReadOnlyList<AssetProvider> providers = await assetMovementClient.GetProvidersForTransfer(
 			new AssetProviderSearch(
 				Asset: assetPair,
 				From: Constants.BankAccountUsLocation,
@@ -65,44 +65,25 @@ public sealed class AssetMovementFiatDepositFromBankExample : IKeetaExample
 		Console.WriteLine($"Using provider: {provider.Id}");
 		Console.WriteLine();
 
+		AssetAccountStatus accountStatus = await assetMovementClient.GetAccountStatus(provider, cancellationToken);
+		if (!AccountStatusReport.IsReady(accountStatus, "a USD deposit address can be issued"))
+		{
+			return 0;
+		}
+
 		AssetCreateAddressRequest request = new(
 			SourceLocation: Constants.BankAccountUsLocation,
 			Asset: assetPair,
 			DestinationLocation: keetaDestination,
 			DestinationAddress: userAccount.Address);
 
-		try
-		{
-			JsonElement depositInfo = await assetMovementClient.CreatePersistentForwardingAddressAsync(
-				provider,
-				request,
-				cancellationToken);
+		JsonElement depositInfo = await assetMovementClient.CreatePersistentForwardingAddress(
+			provider,
+			request,
+			cancellationToken);
 
-			Console.WriteLine("USD bank deposit information:");
-			Console.WriteLine(JsonSerializer.Serialize(depositInfo, JsonOptions));
-			return 0;
-		}
-		catch (KeetaException error) when (error.Code == Blockers.KycShareNeededCode)
-		{
-			Console.Error.WriteLine(
-				"KYC attributes must be shared with the provider before a USD deposit address can be issued.");
-			Console.Error.WriteLine(
-				"Complete KYC sharing (see anchor/kyc-client-sharekyc), then run this example again.");
-			return 0;
-		}
-		catch (KeetaException error) when (error.Code == Blockers.UserActionNeededCode)
-		{
-			UserActionNeededBlocker? userActionNeeded = Blockers.TryParseUserActionNeeded(error);
-			Console.Error.WriteLine(
-				"Provider onboarding steps are still required before a USD deposit address can be issued.");
-			Console.Error.WriteLine(
-				"Complete the actions below (see anchor/kyc-client-sharekyc), then run this example again.");
-			if (userActionNeeded is not null)
-			{
-				Console.Error.WriteLine(JsonSerializer.Serialize(userActionNeeded.ActionsNeeded, JsonOptions));
-			}
-
-			return 0;
-		}
+		Console.WriteLine("USD bank deposit information:");
+		Console.WriteLine(JsonSerializer.Serialize(depositInfo, JsonOptions));
+		return 0;
 	}
 }

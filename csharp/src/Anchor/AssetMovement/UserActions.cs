@@ -13,7 +13,7 @@ public static class UserActions
 	public static async Task ExecuteAsync(
 		WasmRuntime runtime,
 		UserClient userClient,
-		UserActionNeededBlocker blocker,
+		AssetUserActionNeededBlocker blocker,
 		CancellationToken cancellationToken)
 	{
 		List<Operation> operations = new();

@@ -36,19 +36,16 @@ public sealed class KycClientShareKycExample : IKeetaExample
 		Console.WriteLine($"Keeta Account: {userAccount.Address}\n");
 
 		using UserClient userClient = UserClient.FromNetwork(Network, userAccount);
-		using KycClient kycClient = runtime.CreateKycClient(
-			Constants.NodeApi,
-			userClient.NetworkAddress,
-			userAccount);
 		using AssetMovementClient assetMovementClient = runtime.CreateAssetMovementClient(
 			Constants.NodeApi,
 			userClient.NetworkAddress,
 			userAccount);
+		using NodeClient nodeClient = runtime.CreateNodeClient(Constants.NodeApi);
 
 		string keetaDestination = $"chain:keeta:{userClient.Network}";
-		var assetPair = new { from = "USD", to = Constants.KeetaUsdAsset };
+		AssetOrPair assetPair = AssetOrPair.Pair("USD", Constants.KeetaUsdAsset);
 
-		IReadOnlyList<AssetProvider> providers = await assetMovementClient.GetProvidersForTransferAsync(
+		IReadOnlyList<AssetProvider> providers = await assetMovementClient.GetProvidersForTransfer(
 			new AssetProviderSearch(
 				Asset: assetPair,
 				From: Constants.BankAccountUsLocation,
@@ -104,7 +101,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 
 			using SharableCertificateAttributes sharable = await BuildSharableKycAttributesAsync(
 				runtime,
-				kycClient,
+				nodeClient,
 				userClient,
 				userAccount,
 				shareNeeded.Blocker,
@@ -123,7 +120,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 				Helper.ReadLine("Press Enter after accepting TOS: ");
 			}
 
-			await assetMovementClient.ShareKycAttributesAndWaitAsync(
+			await assetMovementClient.ShareKycAttributesAndWait(
 				provider,
 				new AssetShareKycRequest(sharable.ToPem()),
 				cancellationToken: cancellationToken);
@@ -156,46 +153,42 @@ public sealed class KycClientShareKycExample : IKeetaExample
 	{
 		while (!cancellationToken.IsCancellationRequested)
 		{
-			try
+			AssetAccountStatus status = await assetMovementClient.GetAccountStatus(provider, cancellationToken);
+			if (status.ActionRequired && status.Blockers is { } blockers)
 			{
-				return await assetMovementClient.CreatePersistentForwardingAddressAsync(
-					provider,
-					request,
-					cancellationToken);
-			}
-			catch (KeetaException error) when (error.Code == Blockers.KycShareNeededCode)
-			{
-				KycShareNeededBlocker? kycShareNeeded = Blockers.TryParseKycShareNeeded(error);
-				if (kycShareNeeded is not null)
+				if (blockers.OfType<AssetKycShareNeededBlocker>().FirstOrDefault() is { } kycShareNeeded)
 				{
 					throw new KycShareNeededException(kycShareNeeded);
 				}
 
-				throw;
-			}
-			catch (KeetaException error) when (error.Code == Blockers.UserActionNeededCode)
-			{
-				UserActionNeededBlocker? userActionNeeded = Blockers.TryParseUserActionNeeded(error);
-				if (userActionNeeded is null)
+				if (blockers.OfType<AssetUserActionNeededBlocker>().FirstOrDefault() is { } userActionNeeded)
 				{
-					throw;
-				}
+					Console.WriteLine("Onboarding steps required:");
+					Console.WriteLine(JsonSerializer.Serialize(userActionNeeded.ActionsNeeded, new JsonSerializerOptions { WriteIndented = true }));
 
-				Console.WriteLine("Onboarding steps required:");
-				Console.WriteLine(JsonSerializer.Serialize(userActionNeeded.ActionsNeeded, new JsonSerializerOptions { WriteIndented = true }));
-
-				if (promptBeforeOnboarding)
-				{
-					string proceed = Helper.ReadLine("\nComplete onboarding steps and retry? (y/n): ");
-					if (!proceed.Trim().Equals("y", StringComparison.OrdinalIgnoreCase))
+					if (promptBeforeOnboarding)
 					{
-						throw;
+						string proceed = Helper.ReadLine("\nComplete onboarding steps and retry? (y/n): ");
+						if (!proceed.Trim().Equals("y", StringComparison.OrdinalIgnoreCase))
+						{
+							throw new InvalidOperationException("Onboarding cancelled");
+						}
 					}
+
+					await UserActions.ExecuteAsync(runtime, userClient, userActionNeeded, cancellationToken);
+					Console.WriteLine("Onboarding steps completed.\n");
+					continue;
 				}
 
-				await UserActions.ExecuteAsync(runtime, userClient, userActionNeeded, cancellationToken);
-				Console.WriteLine("Onboarding steps completed.\n");
+				throw new InvalidOperationException(
+					"Unresolved provider blocker(s): "
+					+ string.Join(", ", blockers.Select(blocker => blocker.GetType().Name)));
 			}
+
+			return await assetMovementClient.CreatePersistentForwardingAddress(
+				provider,
+				request,
+				cancellationToken);
 		}
 
 		throw new OperationCanceledException(cancellationToken);
@@ -203,17 +196,20 @@ public sealed class KycClientShareKycExample : IKeetaExample
 
 	private static async Task<SharableCertificateAttributes> BuildSharableKycAttributesAsync(
 		WasmRuntime runtime,
-		KycClient kycClient,
+		NodeClient nodeClient,
 		UserClient userClient,
 		Account userAccount,
-		KycShareNeededBlocker blocker,
+		AssetKycShareNeededBlocker blocker,
 		CancellationToken cancellationToken)
 	{
+		bool requiresTrustedChain = blocker.AcceptedIssuers.ValueKind == JsonValueKind.Array
+			&& blocker.AcceptedIssuers.GetArrayLength() > 0;
+
 		(KycCertificate selected, IReadOnlyList<CryptoCertificate> intermediates) = await SelectOnChainKycCertificateAsync(
 			runtime,
-			kycClient,
+			nodeClient,
 			userAccount,
-			blocker.RequiresTrustedChain,
+			requiresTrustedChain,
 			cancellationToken);
 
 		try
@@ -246,13 +242,13 @@ public sealed class KycClientShareKycExample : IKeetaExample
 
 	private static async Task<(KycCertificate Certificate, IReadOnlyList<CryptoCertificate> Intermediates)> SelectOnChainKycCertificateAsync(
 		WasmRuntime runtime,
-		KycClient kycClient,
+		NodeClient nodeClient,
 		Account userAccount,
 		bool requireTrustedChain,
 		CancellationToken cancellationToken)
 	{
 		IReadOnlyList<OnChainCertificate> records =
-			await kycClient.GetAllCertificatesAsync(userAccount, cancellationToken);
+			await nodeClient.GetAllCertificates(userAccount, cancellationToken);
 		if (records.Count == 0)
 		{
 			throw new InvalidOperationException("No on-chain KYC certificates found for this account");
@@ -324,8 +320,8 @@ public sealed class KycClientShareKycExample : IKeetaExample
 			string.Join('\n', new List<string> { message }.Concat(rejections.Select(reason => $"  - {reason}"))));
 	}
 
-	private sealed class KycShareNeededException(KycShareNeededBlocker blocker) : Exception("KYC share is required")
+	private sealed class KycShareNeededException(AssetKycShareNeededBlocker blocker) : Exception("KYC share is required")
 	{
-		public KycShareNeededBlocker Blocker { get; } = blocker;
+		public AssetKycShareNeededBlocker Blocker { get; } = blocker;
 	}
 }

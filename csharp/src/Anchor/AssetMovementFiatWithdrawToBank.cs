@@ -146,9 +146,9 @@ public sealed class AssetMovementFiatWithdrawToBankExample : IKeetaExample
 			userAccount);
 
 		string keetaSource = $"chain:keeta:{userClient.Network}";
-		var assetPair = new { from = Constants.KeetaUsdAsset, to = "USD" };
+		AssetOrPair assetPair = AssetOrPair.Pair(Constants.KeetaUsdAsset, "USD");
 
-		IReadOnlyList<AssetProvider> providers = await assetMovementClient.GetProvidersForTransferAsync(
+		IReadOnlyList<AssetProvider> providers = await assetMovementClient.GetProvidersForTransfer(
 			new AssetProviderSearch(
 				Asset: assetPair,
 				From: keetaSource,
@@ -163,6 +163,12 @@ public sealed class AssetMovementFiatWithdrawToBankExample : IKeetaExample
 		AssetProvider provider = providers[0];
 		Console.WriteLine($"\nUsing provider: {provider.Id}");
 
+		AssetAccountStatus accountStatus = await assetMovementClient.GetAccountStatus(provider, cancellationToken);
+		if (!AccountStatusReport.IsReady(accountStatus, "a USD withdrawal can be initiated"))
+		{
+			return 0;
+		}
+
 		string proceed = Helper.ReadLine("Proceed with the withdrawal? (y/n): ").Trim();
 		if (!string.Equals(proceed, "y", StringComparison.OrdinalIgnoreCase))
 		{
@@ -172,7 +178,7 @@ public sealed class AssetMovementFiatWithdrawToBankExample : IKeetaExample
 		AssetTransfer transfer;
 		try
 		{
-			transfer = await assetMovementClient.InitiateTransferAsync(
+			transfer = await assetMovementClient.InitiateTransfer(
 				provider,
 				new AssetTransferRequest(
 					assetPair,
@@ -180,28 +186,6 @@ public sealed class AssetMovementFiatWithdrawToBankExample : IKeetaExample
 					new AssetTransferDestination(Constants.BankAccountUsLocation, bankRecipient),
 					amountToWithdraw.ToString(CultureInfo.InvariantCulture)),
 				cancellationToken);
-		}
-		catch (KeetaException error) when (error.Code == Blockers.KycShareNeededCode)
-		{
-			Console.Error.WriteLine(
-				"KYC attributes must be shared with the provider before a USD withdrawal can be initiated.");
-			Console.Error.WriteLine(
-				"Complete KYC sharing (see anchor/kyc-client-sharekyc), then run this example again.");
-			return 0;
-		}
-		catch (KeetaException error) when (error.Code == Blockers.UserActionNeededCode)
-		{
-			UserActionNeededBlocker? userActionNeeded = Blockers.TryParseUserActionNeeded(error);
-			Console.Error.WriteLine(
-				"Provider onboarding steps are still required before a USD withdrawal can be initiated.");
-			Console.Error.WriteLine(
-				"Complete the actions below (see anchor/kyc-client-sharekyc), then run this example again.");
-			if (userActionNeeded is not null)
-			{
-				Console.Error.WriteLine(JsonSerializer.Serialize(userActionNeeded.ActionsNeeded, JsonOptions));
-			}
-
-			return 0;
 		}
 		catch (KeetaException error) when (error.Code == "SERVICE")
 		{
@@ -257,7 +241,7 @@ public sealed class AssetMovementFiatWithdrawToBankExample : IKeetaExample
 			{
 				await Task.Delay(TimeSpan.FromSeconds(5), monitorToken);
 
-				AssetTransferStatus transactionResult = await transfer.GetTransferStatusAsync(monitorToken);
+				AssetTransferStatus transactionResult = await transfer.GetTransferStatus(monitorToken);
 				string? status = transactionResult.Transaction.TryGetProperty("status", out JsonElement statusElement)
 					? statusElement.GetString()
 					: null;

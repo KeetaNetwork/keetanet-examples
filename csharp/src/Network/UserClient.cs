@@ -41,9 +41,6 @@ public sealed class UserClient : IDisposable
 			_ => throw new ArgumentException($"Unsupported network: {network}", nameof(network)),
 		};
 
-	public Task<IReadOnlyList<TokenBalance>> AllBalancesAsync(CancellationToken cancellationToken = default) =>
-		Client.GetAllBalancesAsync(RequireSigner().Address, cancellationToken);
-
 	public Task<BigInteger> BalanceAsync(string token, CancellationToken cancellationToken = default) =>
 		Client.GetBalanceAsync(RequireSigner().Address, token, cancellationToken);
 

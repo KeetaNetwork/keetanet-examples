@@ -32,10 +32,11 @@ public sealed class AssetMovementEvmInboundExample : IKeetaExample
 			Constants.NodeApi,
 			userClient.NetworkAddress,
 			userAccount);
+		using NodeClient nodeClient = runtime.CreateNodeClient(Constants.NodeApi);
 
 		string keetaDestination = $"chain:keeta:{userClient.Network}";
 
-		IReadOnlyList<AssetProvider> providers = await assetMovementClient.GetProvidersForTransferAsync(
+		IReadOnlyList<AssetProvider> providers = await assetMovementClient.GetProvidersForTransfer(
 			new AssetProviderSearch(
 				Constants.KeetaUsdcAsset,
 				Constants.BaseSepoliaLocation,
@@ -54,7 +55,7 @@ public sealed class AssetMovementEvmInboundExample : IKeetaExample
 			throw new InvalidOperationException("Provider is undefined");
 		}
 
-		JsonElement persistentAddressResponse = await assetMovementClient.CreatePersistentForwardingAddressAsync(
+		JsonElement persistentAddressResponse = await assetMovementClient.CreatePersistentForwardingAddress(
 			provider,
 			new AssetCreateAddressRequest(
 				SourceLocation: Constants.BaseSepoliaLocation,
@@ -114,7 +115,7 @@ public sealed class AssetMovementEvmInboundExample : IKeetaExample
 				{
 					await Task.Delay(TimeSpan.FromSeconds(5), monitorToken);
 
-					AssetTransactionPage transactionResponse = await assetMovementClient.ListTransactionsAsync(
+					AssetTransactionPage transactionResponse = await assetMovementClient.ListTransactions(
 						provider,
 						new AssetListTransactionsRequest(
 							PersistentAddresses:
@@ -155,10 +156,10 @@ public sealed class AssetMovementEvmInboundExample : IKeetaExample
 						 Updated: {GetString(tx, "updatedAt")}
 						""");
 
-					IReadOnlyList<TokenBalance> balances = await userClient.AllBalancesAsync(monitorToken);
+					IReadOnlyList<TokenBalance> balances = await nodeClient.GetAccountBalances(userAccount, monitorToken);
 					Console.WriteLine("Current Keeta Balances:");
 					Console.WriteLine(JsonSerializer.Serialize(
-						balances.Select(entry => new { token = entry.Token, balance = entry.Balance.ToString() }),
+						balances.Select(entry => new { token = entry.Token.Address, balance = entry.Balance.ToString() }),
 						new JsonSerializerOptions { WriteIndented = true }));
 
 					Console.WriteLine("Transaction completed successfully. Exiting...");

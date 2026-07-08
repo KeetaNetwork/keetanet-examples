@@ -84,7 +84,7 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 
 		string keetaSource = $"chain:keeta:{userClient.Network}";
 
-		IReadOnlyList<AssetProvider> providers = await assetMovementClient.GetProvidersForTransferAsync(
+		IReadOnlyList<AssetProvider> providers = await assetMovementClient.GetProvidersForTransfer(
 			new AssetProviderSearch(
 				Constants.KeetaUsdcAsset,
 				keetaSource,
@@ -103,7 +103,7 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 			throw new InvalidOperationException("Provider is undefined");
 		}
 
-		AssetTransfer transfer = await assetMovementClient.InitiateTransferAsync(
+		AssetTransfer transfer = await assetMovementClient.InitiateTransfer(
 			provider,
 			new AssetTransferRequest(
 				Constants.KeetaUsdcAsset,
@@ -155,7 +155,7 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 			{
 				await Task.Delay(TimeSpan.FromSeconds(5), monitorToken);
 
-				AssetTransferStatus transactionResult = await transfer.GetTransferStatusAsync(monitorToken);
+				AssetTransferStatus transactionResult = await transfer.GetTransferStatus(monitorToken);
 				string? status = transactionResult.Transaction.TryGetProperty("status", out JsonElement statusElement)
 					? statusElement.GetString()
 					: null;

@@ -38,30 +38,6 @@ public sealed class Client
 		return ParseBalance(payload?.Balance ?? "0");
 	}
 
-	public async Task<IReadOnlyList<TokenBalance>> GetAllBalancesAsync(
-		string account,
-		CancellationToken cancellationToken = default)
-	{
-		using HttpResponseMessage response = await Http.GetAsync(
-			$"{_apiUrl}/node/ledger/account/{account}/balance",
-			cancellationToken).ConfigureAwait(false);
-		response.EnsureSuccessStatusCode();
-
-		await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-		BalanceListJson? payload = await JsonSerializer.DeserializeAsync<BalanceListJson>(
-			stream,
-			cancellationToken: cancellationToken).ConfigureAwait(false);
-
-		if (payload?.Balances is null)
-		{
-			return Array.Empty<TokenBalance>();
-		}
-
-		return payload.Balances
-			.Select(entry => new TokenBalance(entry.Token, ParseBalance(entry.Balance)))
-			.ToArray();
-	}
-
 	internal static BigInteger ParseBalance(string balance)
 	{
 		if (!balance.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
@@ -85,10 +61,4 @@ public sealed class Client
 	}
 
 	private sealed record BalanceJson([property: JsonPropertyName("balance")] string Balance);
-
-	private sealed record BalanceListJson([property: JsonPropertyName("balances")] BalanceEntryJson[] Balances);
-
-	private sealed record BalanceEntryJson(
-		[property: JsonPropertyName("token")] string Token,
-		[property: JsonPropertyName("balance")] string Balance);
 }
