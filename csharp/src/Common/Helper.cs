@@ -3,9 +3,8 @@ using System.IO.Compression;
 using System.Numerics;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
+using KeetaNet.Anchor;
 using KeetaNet.Anchor.Crypto;
-using KeetaNet.Examples.Network;
 
 namespace KeetaNet.Examples.Common;
 
@@ -37,6 +36,7 @@ public static class Helper
 	}
 
 	public static async Task<bool> GetFaucetTokensAsync(
+		WasmRuntime runtime,
 		Account account,
 		string network,
 		CancellationToken cancellationToken = default)
@@ -46,8 +46,9 @@ public static class Helper
 			throw new InvalidOperationException("Faucet is only available on the test network");
 		}
 
-		Client client = Client.FromNetwork(network);
-		BigInteger initial = await client.GetBalanceAsync(account.Address, Constants.BaseTokenAddress, cancellationToken)
+		using NodeClient nodeClient = runtime.CreateNodeClient(Constants.NodeApi);
+		using Account baseToken = runtime.Accounts.FromAccount(Constants.BaseTokenAddress);
+		BigInteger initial = await nodeClient.GetAccountBalance(account, baseToken, cancellationToken)
 			.ConfigureAwait(false);
 		BigInteger expectedCredit = BigInteger.Pow(10, 9) * 5;
 
@@ -85,11 +86,11 @@ public static class Helper
 		{
 			try
 			{
-				BigInteger current = await client.GetBalanceAsync(account.Address, Constants.BaseTokenAddress, cancellationToken)
+				BigInteger current = await nodeClient.GetAccountBalance(account, baseToken, cancellationToken)
 					.ConfigureAwait(false);
 				return current >= initial + expectedCredit;
 			}
-			catch (HttpRequestException)
+			catch (KeetaException)
 			{
 				return false;
 			}
@@ -106,29 +107,13 @@ public static class Helper
 
 	/// <summary>Port of <c>getTokenDecimals</c> from <c>src/helper.ts</c>.</summary>
 	public static async Task<int?> GetTokenDecimalsAsync(
-		string network,
-		string? token = null,
+		NodeClient nodeClient,
+		Account token,
 		CancellationToken cancellationToken = default)
 	{
-		string apiUrl = network switch
-		{
-			"test" => Constants.NodeApi,
-			_ => throw new ArgumentException($"Unsupported network: {network}", nameof(network)),
-		};
+		AccountState state = await nodeClient.GetAccountState(token, cancellationToken).ConfigureAwait(false);
 
-		string tokenAddress = token ?? Constants.BaseTokenAddress;
-
-		using HttpResponseMessage response = await Http.GetAsync(
-			$"{apiUrl.TrimEnd('/')}/node/ledger/account/{tokenAddress}",
-			cancellationToken).ConfigureAwait(false);
-		response.EnsureSuccessStatusCode();
-
-		await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-		AccountInfoJson? payload = await JsonSerializer.DeserializeAsync<AccountInfoJson>(
-			stream,
-			cancellationToken: cancellationToken).ConfigureAwait(false);
-
-		if (payload?.Info?.Metadata is not { Length: > 0 } metadataBase64)
+		if (state.Info?.Metadata is not { Length: > 0 } metadataBase64)
 		{
 			return null;
 		}
@@ -155,8 +140,6 @@ public static class Helper
 		return null;
 	}
 
-	private static readonly HttpClient Http = new();
-
 	private static byte[] TryInflateMetadata(byte[] data)
 	{
 		try
@@ -176,8 +159,4 @@ public static class Helper
 			return data;
 		}
 	}
-
-	private sealed record AccountInfoJson([property: JsonPropertyName("info")] AccountMetadataJson? Info);
-
-	private sealed record AccountMetadataJson([property: JsonPropertyName("metadata")] string? Metadata);
 }

@@ -53,24 +53,11 @@ public static class LedgerPublisher
 		return block.HashHex;
 	}
 
-	internal static string? GetHeadHash(string account, CancellationToken cancellationToken)
+	internal static string? GetHeadHash(WasmRuntime runtime, Account account, CancellationToken cancellationToken)
 	{
-		using HttpResponseMessage response = Http.GetAsync(
-			$"{Constants.NodeApi}/node/ledger/account/{account}",
-			cancellationToken).GetAwaiter().GetResult();
-		if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-		{
-			return null;
-		}
-
-		response.EnsureSuccessStatusCode();
-		using JsonDocument document = JsonDocument.Parse(response.Content.ReadAsStreamAsync(cancellationToken).GetAwaiter().GetResult());
-		if (!document.RootElement.TryGetProperty("currentHeadBlock", out JsonElement head))
-		{
-			return null;
-		}
-
-		return head.ValueKind == JsonValueKind.Null ? null : head.GetString();
+		using NodeClient nodeClient = runtime.CreateNodeClient(Constants.NodeApi);
+		AccountState state = nodeClient.GetAccountState(account, cancellationToken).GetAwaiter().GetResult();
+		return state.HeadBlock?.ToString();
 	}
 
 	private static void Transmit(
@@ -119,7 +106,7 @@ public static class LedgerPublisher
 		}
 
 		string? previous = blocks.LastOrDefault(block => block.AccountAddress == feeSigner.Address)?.HashHex
-			?? GetHeadHash(feeSigner.Address, cancellationToken);
+			?? GetHeadHash(runtime, feeSigner, cancellationToken);
 
 		return BlockSealer.BuildSigned(
 			runtime,
@@ -292,7 +279,7 @@ internal static class BlockSealer
 		string? headHashHex = null,
 		CancellationToken cancellationToken = default)
 	{
-		string? head = headHashHex ?? LedgerPublisher.GetHeadHash(blockAccount.Address, cancellationToken);
+		string? head = headHashHex ?? LedgerPublisher.GetHeadHash(runtime, blockAccount, cancellationToken);
 		BlockBuilder builder = runtime.Blocks().Builder()
 			.Version(2)
 			.Network(networkId)

@@ -42,18 +42,20 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 		}
 
 		using UserClient userClient = UserClient.FromNetwork(Network, userAccount);
+		using NodeClient nodeClient = runtime.CreateNodeClient(Constants.NodeApi);
 
-		BigInteger baseTokenBalance = await userClient.BalanceAsync(userClient.BaseToken, cancellationToken);
+		using Account baseToken = runtime.Accounts.FromAccount(userClient.BaseToken);
+		BigInteger baseTokenBalance = await nodeClient.GetAccountBalance(userAccount, baseToken, cancellationToken);
 		if (baseTokenBalance == BigInteger.Zero)
 		{
-			if (!await Helper.GetFaucetTokensAsync(userAccount, Network, cancellationToken))
+			if (!await Helper.GetFaucetTokensAsync(runtime, userAccount, Network, cancellationToken))
 			{
 				throw new InvalidOperationException("Failed to get Faucet Tokens");
 			}
 		}
 
 		using Account usdcToken = runtime.Accounts.FromAccount(Constants.KeetaUsdcAsset);
-		BigInteger currentBalance = await userClient.BalanceAsync(usdcToken, cancellationToken);
+		BigInteger currentBalance = await nodeClient.GetAccountBalance(userAccount, usdcToken, cancellationToken);
 		Console.WriteLine($"\nCurrent USDC Balance: {currentBalance} ({Helper.FormatDecimals(currentBalance, UsdcDecimals)} USDC)");
 
 		if (currentBalance == BigInteger.Zero)
@@ -177,7 +179,7 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 						========================================
 						""");
 
-					BigInteger finalBalance = await userClient.BalanceAsync(usdcToken, monitorToken);
+					BigInteger finalBalance = await nodeClient.GetAccountBalance(userAccount, usdcToken, monitorToken);
 					Console.WriteLine($"Final USDC Balance on Keeta: {Helper.FormatDecimals(finalBalance, UsdcDecimals)} USDC");
 					return 0;
 				}

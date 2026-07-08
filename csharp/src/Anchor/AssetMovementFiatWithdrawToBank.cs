@@ -50,24 +50,26 @@ public sealed class AssetMovementFiatWithdrawToBankExample : IKeetaExample
 		Console.WriteLine();
 
 		using UserClient userClient = UserClient.FromNetwork(Network, userAccount);
+		using NodeClient nodeClient = runtime.CreateNodeClient(Constants.NodeApi);
+		using Account usdToken = runtime.Accounts.FromAccount(Constants.KeetaUsdAsset);
 
-		int? usdDecimals = await Helper.GetTokenDecimalsAsync(Network, Constants.KeetaUsdAsset, cancellationToken);
+		int? usdDecimals = await Helper.GetTokenDecimalsAsync(nodeClient, usdToken, cancellationToken);
 		if (usdDecimals is null)
 		{
 			throw new InvalidOperationException("Failed to get USD token decimals");
 		}
 
-		BigInteger baseTokenBalance = await userClient.BalanceAsync(userClient.BaseToken, cancellationToken);
+		using Account baseToken = runtime.Accounts.FromAccount(userClient.BaseToken);
+		BigInteger baseTokenBalance = await nodeClient.GetAccountBalance(userAccount, baseToken, cancellationToken);
 		if (baseTokenBalance == BigInteger.Zero)
 		{
-			if (!await Helper.GetFaucetTokensAsync(userAccount, Network, cancellationToken))
+			if (!await Helper.GetFaucetTokensAsync(runtime, userAccount, Network, cancellationToken))
 			{
 				throw new InvalidOperationException("Failed to get faucet tokens for transaction fees");
 			}
 		}
 
-		using Account usdToken = runtime.Accounts.FromAccount(Constants.KeetaUsdAsset);
-		BigInteger currentBalance = await userClient.BalanceAsync(usdToken, cancellationToken);
+		BigInteger currentBalance = await nodeClient.GetAccountBalance(userAccount, usdToken, cancellationToken);
 		Console.WriteLine($"Current USD Balance: {Helper.FormatDecimals(currentBalance, usdDecimals.Value)} USD");
 
 		if (currentBalance == BigInteger.Zero)
@@ -269,7 +271,7 @@ public sealed class AssetMovementFiatWithdrawToBankExample : IKeetaExample
 						========================================
 						""");
 
-					BigInteger finalBalance = await userClient.BalanceAsync(usdToken, monitorToken);
+					BigInteger finalBalance = await nodeClient.GetAccountBalance(userAccount, usdToken, monitorToken);
 					Console.WriteLine($"Final USD Balance on Keeta: {Helper.FormatDecimals(finalBalance, usdDecimals.Value)} USD");
 					return 0;
 				}

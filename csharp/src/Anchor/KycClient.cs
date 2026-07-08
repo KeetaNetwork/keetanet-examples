@@ -33,7 +33,7 @@ public sealed class KycClientExample : IKeetaExample
 
 		using UserClient userClient = UserClient.FromNetwork(Network, userAccount);
 
-		if (!await Helper.GetFaucetTokensAsync(userAccount, Network, cancellationToken))
+		if (!await Helper.GetFaucetTokensAsync(runtime, userAccount, Network, cancellationToken))
 		{
 			throw new InvalidOperationException("Failed to get Faucet Tokens");
 		}
@@ -44,12 +44,12 @@ public sealed class KycClientExample : IKeetaExample
 			userAccount);
 		using NodeClient nodeClient = runtime.CreateNodeClient(Constants.NodeApi);
 
-		IReadOnlyList<KycProvider> providers = await kycClient.GetProviders(Countries, cancellationToken);
+		SupportedCountries supportedCountries = await kycClient.GetSupportedCountries(cancellationToken);
 		Console.WriteLine(
 			"Supported Countries: {0}",
-			string.Join(", ", providers
-				.SelectMany(provider => provider.CountryCodes ?? Array.Empty<string>())
-				.Distinct(StringComparer.OrdinalIgnoreCase)));
+			supportedCountries.Worldwide ? "Worldwide" : string.Join(", ", supportedCountries.Countries));
+
+		IReadOnlyList<KycProvider> providers = await kycClient.GetProviders(Countries, cancellationToken);
 
 		if (providers.Count == 0)
 		{

@@ -10,16 +10,13 @@ namespace KeetaNet.Examples.Network;
 
 public sealed class UserClient : IDisposable
 {
-	private UserClient(Client client, Account? signer, string networkAddress, string baseToken, ulong network)
+	private UserClient(Account? signer, string networkAddress, string baseToken, ulong network)
 	{
-		Client = client;
 		Signer = signer;
 		NetworkAddress = networkAddress;
 		BaseToken = baseToken;
 		Network = network;
 	}
-
-	public Client Client { get; }
 
 	public Account? Signer { get; }
 
@@ -33,19 +30,12 @@ public sealed class UserClient : IDisposable
 		network switch
 		{
 			"test" => new UserClient(
-				Client.FromNetwork(network),
 				signer,
 				Constants.MetadataRoot,
 				Constants.BaseTokenAddress,
 				Constants.NetworkId),
 			_ => throw new ArgumentException($"Unsupported network: {network}", nameof(network)),
 		};
-
-	public Task<BigInteger> BalanceAsync(string token, CancellationToken cancellationToken = default) =>
-		Client.GetBalanceAsync(RequireSigner().Address, token, cancellationToken);
-
-	public Task<BigInteger> BalanceAsync(Account token, CancellationToken cancellationToken = default) =>
-		BalanceAsync(token.Address, cancellationToken);
 
 	public Task<string> SendAsync(
 		WasmRuntime runtime,
