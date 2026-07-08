@@ -31,7 +31,7 @@ public sealed class KycClientExample : IKeetaExample
 		Console.WriteLine($"Seed: {seed}");
 		Console.WriteLine($"Keeta Account: {userAccount.Address}\n");
 
-		using UserClient userClient = UserClient.FromNetwork(Network, userAccount);
+		UserClient userClient = UserClient.FromNetwork(Network, userAccount);
 
 		if (!await Helper.GetFaucetTokens(runtime, userAccount, Network, cancellationToken))
 		{

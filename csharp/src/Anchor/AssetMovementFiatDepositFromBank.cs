@@ -40,7 +40,7 @@ public sealed class AssetMovementFiatDepositFromBankExample : IKeetaExample
 		Console.WriteLine($"USD Token: {Constants.KeetaUsdAsset}");
 		Console.WriteLine();
 
-		using UserClient userClient = UserClient.FromNetwork(Network, userAccount);
+		UserClient userClient = UserClient.FromNetwork(Network, userAccount);
 		using AssetMovementClient assetMovementClient = runtime.CreateAssetMovementClient(
 			Constants.NodeApi,
 			userClient.NetworkAddress,

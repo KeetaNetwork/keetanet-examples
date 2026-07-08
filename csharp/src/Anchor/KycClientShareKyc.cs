@@ -35,7 +35,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 		using Account userAccount = runtime.Accounts.FromSeed(seed, 0, "ecdsa_secp256k1");
 		Console.WriteLine($"Keeta Account: {userAccount.Address}\n");
 
-		using UserClient userClient = UserClient.FromNetwork(Network, userAccount);
+		UserClient userClient = UserClient.FromNetwork(Network, userAccount);
 		using AssetMovementClient assetMovementClient = runtime.CreateAssetMovementClient(
 			Constants.NodeApi,
 			userClient.NetworkAddress,

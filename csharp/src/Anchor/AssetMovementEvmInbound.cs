@@ -26,7 +26,7 @@ public sealed class AssetMovementEvmInboundExample : IKeetaExample
 		Console.WriteLine($"Seed: {seed}");
 		Console.WriteLine($"Keeta Account: {userAccount.Address}\n");
 
-		using UserClient userClient = UserClient.FromNetwork(Network, userAccount);
+		UserClient userClient = UserClient.FromNetwork(Network, userAccount);
 
 		using AssetMovementClient assetMovementClient = runtime.CreateAssetMovementClient(
 			Constants.NodeApi,

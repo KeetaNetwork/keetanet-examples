@@ -41,7 +41,7 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 			throw new InvalidOperationException("Invalid Base Sepolia address. Must be a valid Ethereum address (0x...)");
 		}
 
-		using UserClient userClient = UserClient.FromNetwork(Network, userAccount);
+		UserClient userClient = UserClient.FromNetwork(Network, userAccount);
 		using NodeClient nodeClient = runtime.CreateNodeClient(Constants.NodeApi);
 
 		using Account baseToken = runtime.Accounts.FromAccount(userClient.BaseToken);

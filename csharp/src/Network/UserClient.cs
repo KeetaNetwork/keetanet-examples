@@ -8,7 +8,7 @@ using KeetaNet.Examples.Ledger;
 
 namespace KeetaNet.Examples.Network;
 
-public sealed class UserClient : IDisposable
+public sealed class UserClient
 {
 	private UserClient(Account? signer, string networkAddress, string baseToken, ulong network)
 	{
@@ -106,10 +106,6 @@ public sealed class UserClient : IDisposable
 		return Task.Run(
 			() => LedgerPublisher.PublishOperations(runtime, account, signer, operations, Network, cancellationToken),
 			cancellationToken);
-	}
-
-	public void Dispose()
-	{
 	}
 
 	private Account RequireSigner() =>
