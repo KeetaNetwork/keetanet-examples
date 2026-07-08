@@ -37,7 +37,7 @@ public sealed class UserClient : IDisposable
 			_ => throw new ArgumentException($"Unsupported network: {network}", nameof(network)),
 		};
 
-	public Task<string> SendAsync(
+	public Task<string> Send(
 		WasmRuntime runtime,
 		Account to,
 		BigInteger amount,
@@ -59,7 +59,7 @@ public sealed class UserClient : IDisposable
 			cancellationToken);
 	}
 
-	public Task<string> ModifyCertificateAsync(
+	public Task<string> ModifyCertificate(
 		WasmRuntime runtime,
 		string certificatePem,
 		IReadOnlyList<string>? intermediatePems,
@@ -95,7 +95,7 @@ public sealed class UserClient : IDisposable
 			cancellationToken);
 	}
 
-	public Task<string> PublishOperationsAsync(
+	public Task<string> PublishOperations(
 		WasmRuntime runtime,
 		IReadOnlyList<Operation> operations,
 		Account? blockAccount = null,

@@ -15,7 +15,7 @@ public sealed class AssetMovementEvmInboundExample : IKeetaExample
 	public string Description =>
 		"Example of using the Keeta Anchor Client to move USDC from Base Sepolia to Keeta Network";
 
-	public async Task<int> RunAsync(string[] args, CancellationToken cancellationToken = default)
+	public async Task<int> Run(string[] args, CancellationToken cancellationToken = default)
 	{
 		Console.WriteLine("Keeta Asset Movement Example: Base Sepolia USDC => Keeta");
 

@@ -23,7 +23,7 @@ internal static class Program
 
 		try
 		{
-			return await example.RunAsync(exampleArgs).ConfigureAwait(false);
+			return await example.Run(exampleArgs).ConfigureAwait(false);
 		}
 		catch (Exception error)
 		{

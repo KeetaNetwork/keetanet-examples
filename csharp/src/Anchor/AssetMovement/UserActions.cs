@@ -10,7 +10,7 @@ namespace KeetaNet.Examples.Anchor.AssetMovement;
 /// <summary>Translates provider onboarding actions into ledger operations.</summary>
 public static class UserActions
 {
-	public static async Task ExecuteAsync(
+	public static async Task Execute(
 		WasmRuntime runtime,
 		UserClient userClient,
 		AssetUserActionNeededBlocker blocker,
@@ -52,7 +52,7 @@ public static class UserActions
 				return;
 			}
 
-			await userClient.PublishOperationsAsync(runtime, operations, blockAccount, cancellationToken).ConfigureAwait(false);
+			await userClient.PublishOperations(runtime, operations, blockAccount, cancellationToken).ConfigureAwait(false);
 		}
 		finally
 		{

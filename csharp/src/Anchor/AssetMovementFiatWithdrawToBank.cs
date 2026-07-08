@@ -31,7 +31,7 @@ public sealed class AssetMovementFiatWithdrawToBankExample : IKeetaExample
 	public string Description =>
 		"Withdraw USD from Keeta Test Network to a US bank account";
 
-	public async Task<int> RunAsync(string[] args, CancellationToken cancellationToken = default)
+	public async Task<int> Run(string[] args, CancellationToken cancellationToken = default)
 	{
 		Console.WriteLine("Keeta Fiat Withdraw Example: Keeta USD => US Bank");
 		Console.WriteLine("===================================================");
@@ -53,7 +53,7 @@ public sealed class AssetMovementFiatWithdrawToBankExample : IKeetaExample
 		using NodeClient nodeClient = runtime.CreateNodeClient(Constants.NodeApi);
 		using Account usdToken = runtime.Accounts.FromAccount(Constants.KeetaUsdAsset);
 
-		int? usdDecimals = await Helper.GetTokenDecimalsAsync(nodeClient, usdToken, cancellationToken);
+		int? usdDecimals = await Helper.GetTokenDecimals(nodeClient, usdToken, cancellationToken);
 		if (usdDecimals is null)
 		{
 			throw new InvalidOperationException("Failed to get USD token decimals");
@@ -63,7 +63,7 @@ public sealed class AssetMovementFiatWithdrawToBankExample : IKeetaExample
 		BigInteger baseTokenBalance = await nodeClient.GetAccountBalance(userAccount, baseToken, cancellationToken);
 		if (baseTokenBalance == BigInteger.Zero)
 		{
-			if (!await Helper.GetFaucetTokensAsync(runtime, userAccount, Network, cancellationToken))
+			if (!await Helper.GetFaucetTokens(runtime, userAccount, Network, cancellationToken))
 			{
 				throw new InvalidOperationException("Failed to get faucet tokens for transaction fees");
 			}
@@ -222,7 +222,7 @@ public sealed class AssetMovementFiatWithdrawToBankExample : IKeetaExample
 		Console.WriteLine("Sending USD to anchor ... please wait ...");
 
 		using Account sendTo = runtime.Accounts.FromAccount(anchorAccount);
-		await userClient.SendAsync(runtime, sendTo, amountToWithdraw, usdToken, external, cancellationToken);
+		await userClient.Send(runtime, sendTo, amountToWithdraw, usdToken, external, cancellationToken);
 
 		Console.WriteLine("\nMonitoring transfer status ... (checks every 5 seconds; Ctrl+C to stop)");
 

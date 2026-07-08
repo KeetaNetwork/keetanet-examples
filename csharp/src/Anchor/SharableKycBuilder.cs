@@ -83,7 +83,7 @@ internal static class SharableKycBuilder
 
 		try
 		{
-			JsonObject references = CollectReferencesAsync(
+			JsonObject references = CollectReferences(
 				runtime,
 				certificate,
 				subject,
@@ -138,7 +138,7 @@ internal static class SharableKycBuilder
 		}
 	}
 
-	private static async Task<JsonObject> CollectReferencesAsync(
+	private static async Task<JsonObject> CollectReferences(
 		WasmRuntime runtime,
 		KycCertificate certificate,
 		Account subject,
@@ -154,7 +154,7 @@ internal static class SharableKycBuilder
 		try
 		{
 			KycAttributeValue value = certificate.GetAttribute(attributeName, subject);
-			await WalkReferencesAsync(runtime, subject, value.AsJson(), references, cancellationToken)
+			await WalkReferences(runtime, subject, value.AsJson(), references, cancellationToken)
 				.ConfigureAwait(false);
 		}
 		catch (KeetaException)
@@ -165,7 +165,7 @@ internal static class SharableKycBuilder
 		return references;
 	}
 
-	private static async Task WalkReferencesAsync(
+	private static async Task WalkReferences(
 		WasmRuntime runtime,
 		Account subject,
 		JsonElement node,
@@ -179,7 +179,7 @@ internal static class SharableKycBuilder
 				{
 					try
 					{
-						byte[] data = await FetchReferenceAsync(
+						byte[] data = await FetchReference(
 							url!,
 							expectedDigest!,
 							encryptionAlgorithm,
@@ -199,7 +199,7 @@ internal static class SharableKycBuilder
 
 				foreach (JsonProperty property in node.EnumerateObject())
 				{
-					await WalkReferencesAsync(runtime, subject, property.Value, references, cancellationToken)
+					await WalkReferences(runtime, subject, property.Value, references, cancellationToken)
 						.ConfigureAwait(false);
 				}
 
@@ -208,7 +208,7 @@ internal static class SharableKycBuilder
 			case JsonValueKind.Array:
 				foreach (JsonElement item in node.EnumerateArray())
 				{
-					await WalkReferencesAsync(runtime, subject, item, references, cancellationToken)
+					await WalkReferences(runtime, subject, item, references, cancellationToken)
 						.ConfigureAwait(false);
 				}
 
@@ -294,7 +294,7 @@ internal static class SharableKycBuilder
 		return null;
 	}
 
-	private static async Task<byte[]> FetchReferenceAsync(
+	private static async Task<byte[]> FetchReference(
 		string url,
 		byte[] expectedDigest,
 		string? encryptionAlgorithm,

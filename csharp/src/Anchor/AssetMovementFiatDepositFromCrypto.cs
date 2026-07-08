@@ -19,7 +19,7 @@ public sealed class AssetMovementFiatDepositFromCryptoExample : IKeetaExample
 	public string Description =>
 		"Move USDC from Arbitrum Sepolia to USD on Keeta Test Network via a persistent forwarding address";
 
-	public async Task<int> RunAsync(string[] args, CancellationToken cancellationToken = default)
+	public async Task<int> Run(string[] args, CancellationToken cancellationToken = default)
 	{
 		Console.WriteLine("Keeta Asset Movement Example: Arbitrum USDC => Keeta USD");
 

@@ -18,7 +18,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 	public string Description =>
 		"Use the Keeta Anchor Client to share KYC attributes to an Anchor and onboard";
 
-	public async Task<int> RunAsync(string[] args, CancellationToken cancellationToken = default)
+	public async Task<int> Run(string[] args, CancellationToken cancellationToken = default)
 	{
 		Console.WriteLine("""
 			Keeta KYC Example: Request USD Bank Deposit Address
@@ -68,7 +68,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 
 		try
 		{
-			JsonElement persistentAddress = await CreatePersistentForwardingAddressWithOnboardingAsync(
+			JsonElement persistentAddress = await CreatePersistentForwardingAddressWithOnboarding(
 				runtime,
 				assetMovementClient,
 				provider,
@@ -99,7 +99,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 				return 0;
 			}
 
-			using SharableCertificateAttributes sharable = await BuildSharableKycAttributesAsync(
+			using SharableCertificateAttributes sharable = await BuildSharableKycAttributes(
 				runtime,
 				nodeClient,
 				userClient,
@@ -127,7 +127,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 
 			Console.WriteLine("KYC attributes shared.\n");
 
-			JsonElement createdAddress = await CreatePersistentForwardingAddressWithOnboardingAsync(
+			JsonElement createdAddress = await CreatePersistentForwardingAddressWithOnboarding(
 				runtime,
 				assetMovementClient,
 				provider,
@@ -142,7 +142,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 		}
 	}
 
-	private static async Task<JsonElement> CreatePersistentForwardingAddressWithOnboardingAsync(
+	private static async Task<JsonElement> CreatePersistentForwardingAddressWithOnboarding(
 		WasmRuntime runtime,
 		AssetMovementClient assetMovementClient,
 		AssetProvider provider,
@@ -175,7 +175,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 						}
 					}
 
-					await UserActions.ExecuteAsync(runtime, userClient, userActionNeeded, cancellationToken);
+					await UserActions.Execute(runtime, userClient, userActionNeeded, cancellationToken);
 					Console.WriteLine("Onboarding steps completed.\n");
 					continue;
 				}
@@ -194,7 +194,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 		throw new OperationCanceledException(cancellationToken);
 	}
 
-	private static async Task<SharableCertificateAttributes> BuildSharableKycAttributesAsync(
+	private static async Task<SharableCertificateAttributes> BuildSharableKycAttributes(
 		WasmRuntime runtime,
 		NodeClient nodeClient,
 		UserClient userClient,
@@ -205,7 +205,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 		bool requiresTrustedChain = blocker.AcceptedIssuers.ValueKind == JsonValueKind.Array
 			&& blocker.AcceptedIssuers.GetArrayLength() > 0;
 
-		(KycCertificate selected, IReadOnlyList<CryptoCertificate> intermediates) = await SelectOnChainKycCertificateAsync(
+		(KycCertificate selected, IReadOnlyList<CryptoCertificate> intermediates) = await SelectOnChainKycCertificate(
 			runtime,
 			nodeClient,
 			userAccount,
@@ -240,7 +240,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 		}
 	}
 
-	private static async Task<(KycCertificate Certificate, IReadOnlyList<CryptoCertificate> Intermediates)> SelectOnChainKycCertificateAsync(
+	private static async Task<(KycCertificate Certificate, IReadOnlyList<CryptoCertificate> Intermediates)> SelectOnChainKycCertificate(
 		WasmRuntime runtime,
 		NodeClient nodeClient,
 		Account userAccount,

@@ -18,7 +18,7 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 	public string Description =>
 		"Example of using the Keeta Anchor Client to move USDC from Keeta Test Network to Base Sepolia";
 
-	public async Task<int> RunAsync(string[] args, CancellationToken cancellationToken = default)
+	public async Task<int> Run(string[] args, CancellationToken cancellationToken = default)
 	{
 		Console.WriteLine("""
 			Keeta Asset Movement Example: Keeta => Base Sepolia USDC
@@ -48,7 +48,7 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 		BigInteger baseTokenBalance = await nodeClient.GetAccountBalance(userAccount, baseToken, cancellationToken);
 		if (baseTokenBalance == BigInteger.Zero)
 		{
-			if (!await Helper.GetFaucetTokensAsync(runtime, userAccount, Network, cancellationToken))
+			if (!await Helper.GetFaucetTokens(runtime, userAccount, Network, cancellationToken))
 			{
 				throw new InvalidOperationException("Failed to get Faucet Tokens");
 			}
@@ -136,7 +136,7 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 			: externalElement.GetRawText();
 
 		using Account sendTo = runtime.Accounts.FromAccount(anchorAccount);
-		await userClient.SendAsync(runtime, sendTo, amountToSend, usdcToken, external, cancellationToken);
+		await userClient.Send(runtime, sendTo, amountToSend, usdcToken, external, cancellationToken);
 
 		Console.WriteLine("\nMonitoring transfer status... (This will check every 5 seconds. Press Ctrl+C to stop)");
 

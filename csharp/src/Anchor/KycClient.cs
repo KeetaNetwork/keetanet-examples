@@ -17,7 +17,7 @@ public sealed class KycClientExample : IKeetaExample
 	public string Description =>
 		"Example of using the Keeta Anchor Client to programmatically add KYC to a wallet";
 
-	public async Task<int> RunAsync(string[] args, CancellationToken cancellationToken = default)
+	public async Task<int> Run(string[] args, CancellationToken cancellationToken = default)
 	{
 		Console.WriteLine("""
 			Keeta KYC Example: Add KYC Verification to a Wallet
@@ -33,7 +33,7 @@ public sealed class KycClientExample : IKeetaExample
 
 		using UserClient userClient = UserClient.FromNetwork(Network, userAccount);
 
-		if (!await Helper.GetFaucetTokensAsync(runtime, userAccount, Network, cancellationToken))
+		if (!await Helper.GetFaucetTokens(runtime, userAccount, Network, cancellationToken))
 		{
 			throw new InvalidOperationException("Failed to get Faucet Tokens");
 		}
@@ -141,7 +141,7 @@ public sealed class KycClientExample : IKeetaExample
 					Console.WriteLine($"    Full name (decrypted): {fullName.AsText()}");
 				}
 
-				await userClient.ModifyCertificateAsync(
+				await userClient.ModifyCertificate(
 					runtime,
 					issued.Value,
 					issued.Intermediates,

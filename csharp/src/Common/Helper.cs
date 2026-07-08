@@ -16,7 +16,7 @@ public static class Helper
 		return Console.In.ReadLine() ?? string.Empty;
 	}
 
-	public static async Task<bool> WaitForResultAsync(
+	public static async Task<bool> WaitForResult(
 		Func<Task<bool>> predicate,
 		TimeSpan? timeout = null,
 		CancellationToken cancellationToken = default)
@@ -35,7 +35,7 @@ public static class Helper
 		return false;
 	}
 
-	public static async Task<bool> GetFaucetTokensAsync(
+	public static async Task<bool> GetFaucetTokens(
 		WasmRuntime runtime,
 		Account account,
 		string network,
@@ -82,7 +82,7 @@ public static class Helper
 			Console.Error.WriteLine($"Faucet request failed for: {account.Address} {error.Message}");
 		}
 
-		return await WaitForResultAsync(async () =>
+		return await WaitForResult(async () =>
 		{
 			try
 			{
@@ -106,7 +106,7 @@ public static class Helper
 	}
 
 	/// <summary>Port of <c>getTokenDecimals</c> from <c>src/helper.ts</c>.</summary>
-	public static async Task<int?> GetTokenDecimalsAsync(
+	public static async Task<int?> GetTokenDecimals(
 		NodeClient nodeClient,
 		Account token,
 		CancellationToken cancellationToken = default)

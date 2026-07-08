@@ -9,5 +9,5 @@ public interface IKeetaExample
 	/// <summary>Human-readable description from the TypeScript file header.</summary>
 	string Description { get; }
 
-	Task<int> RunAsync(string[] args, CancellationToken cancellationToken = default);
+	Task<int> Run(string[] args, CancellationToken cancellationToken = default);
 }

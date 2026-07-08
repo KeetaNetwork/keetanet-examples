@@ -22,7 +22,7 @@ public sealed class AssetMovementFiatDepositFromBankExample : IKeetaExample
 	public string Description =>
 		"Request USD bank deposit information (persistent address) for USD on Keeta";
 
-	public async Task<int> RunAsync(string[] args, CancellationToken cancellationToken = default)
+	public async Task<int> Run(string[] args, CancellationToken cancellationToken = default)
 	{
 		Console.WriteLine("Keeta Fiat Deposit Example: USD Bank Deposit Information");
 		Console.WriteLine("==========================================================");
