@@ -102,7 +102,6 @@ public sealed class KycClientShareKycExample : IKeetaExample
 			using SharableCertificateAttributes sharable = await BuildSharableKycAttributes(
 				runtime,
 				nodeClient,
-				userClient,
 				userAccount,
 				shareNeeded.Blocker,
 				cancellationToken);
@@ -197,7 +196,6 @@ public sealed class KycClientShareKycExample : IKeetaExample
 	private static async Task<SharableCertificateAttributes> BuildSharableKycAttributes(
 		WasmRuntime runtime,
 		NodeClient nodeClient,
-		UserClient userClient,
 		Account userAccount,
 		AssetKycShareNeededBlocker blocker,
 		CancellationToken cancellationToken)
