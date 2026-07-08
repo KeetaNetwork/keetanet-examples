@@ -11,7 +11,8 @@ EXAMPLES := \
 	anchor/asset-movement-evm-inbound \
 	anchor/asset-movement-evm-outbound \
 	anchor/asset-movement-fiat-deposit-from-crypto \
-	anchor/asset-movement-fiat-deposit-from-bank
+	anchor/asset-movement-fiat-deposit-from-bank \
+	anchor/asset-movement-fiat-withdraw-to-bank
 
 default: help
 

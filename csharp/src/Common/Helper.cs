@@ -1,5 +1,9 @@
 using System.Globalization;
+using System.IO.Compression;
 using System.Numerics;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using KeetaNet.Anchor.Crypto;
 using KeetaNet.Examples.Network;
 
@@ -99,4 +103,81 @@ public static class Helper
 		string fractionText = fraction.ToString(CultureInfo.InvariantCulture).PadLeft(decimals, '0').TrimEnd('0');
 		return fractionText.Length == 0 ? whole.ToString(CultureInfo.InvariantCulture) : $"{whole}.{fractionText}";
 	}
+
+	/// <summary>Port of <c>getTokenDecimals</c> from <c>src/helper.ts</c>.</summary>
+	public static async Task<int?> GetTokenDecimalsAsync(
+		string network,
+		string? token = null,
+		CancellationToken cancellationToken = default)
+	{
+		string apiUrl = network switch
+		{
+			"test" => Constants.NodeApi,
+			_ => throw new ArgumentException($"Unsupported network: {network}", nameof(network)),
+		};
+
+		string tokenAddress = token ?? Constants.BaseTokenAddress;
+
+		using HttpResponseMessage response = await Http.GetAsync(
+			$"{apiUrl.TrimEnd('/')}/node/ledger/account/{tokenAddress}",
+			cancellationToken).ConfigureAwait(false);
+		response.EnsureSuccessStatusCode();
+
+		await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+		AccountInfoJson? payload = await JsonSerializer.DeserializeAsync<AccountInfoJson>(
+			stream,
+			cancellationToken: cancellationToken).ConfigureAwait(false);
+
+		if (payload?.Info?.Metadata is not { Length: > 0 } metadataBase64)
+		{
+			return null;
+		}
+
+		byte[] metadataBytes = Convert.FromBase64String(metadataBase64);
+		byte[] decoded = TryInflateMetadata(metadataBytes);
+		using JsonDocument document = JsonDocument.Parse(Encoding.UTF8.GetString(decoded));
+		JsonElement root = document.RootElement;
+
+		if (root.TryGetProperty("decimalPlaces", out JsonElement decimalPlaces))
+		{
+			return decimalPlaces.ValueKind switch
+			{
+				JsonValueKind.Number when decimalPlaces.TryGetInt32(out int value) => value,
+				JsonValueKind.String when int.TryParse(
+					decimalPlaces.GetString(),
+					NumberStyles.Integer,
+					CultureInfo.InvariantCulture,
+					out int parsed) => parsed,
+				_ => null,
+			};
+		}
+
+		return null;
+	}
+
+	private static readonly HttpClient Http = new();
+
+	private static byte[] TryInflateMetadata(byte[] data)
+	{
+		try
+		{
+			using var input = new MemoryStream(data);
+			using var deflate = new ZLibStream(input, CompressionMode.Decompress);
+			using var output = new MemoryStream();
+			deflate.CopyTo(output);
+			return output.ToArray();
+		}
+		catch (InvalidDataException)
+		{
+			return data;
+		}
+		catch (IOException)
+		{
+			return data;
+		}
+	}
+
+	private sealed record AccountInfoJson([property: JsonPropertyName("info")] AccountMetadataJson? Info);
+
+	private sealed record AccountMetadataJson([property: JsonPropertyName("metadata")] string? Metadata);
 }
