@@ -45,13 +45,13 @@ public sealed class AssetMovementFiatWithdrawToBankExample : IKeetaExample
 		}
 
 		using Account userAccount = runtime.Accounts.FromSeed(seed, 0, "ecdsa_secp256k1");
-		Console.WriteLine($"Keeta Account: {userAccount.Address}");
+		Console.WriteLine($"Keeta Account: {userAccount.PublicKeyString}");
 		Console.WriteLine($"USD Token: {Constants.KeetaUsdAsset}");
 		Console.WriteLine();
 
 		UserClient userClient = UserClient.FromNetwork(Network, userAccount);
 		using NodeClient nodeClient = runtime.CreateNodeClient(Constants.NodeApi);
-		using Account usdToken = runtime.Accounts.FromAccount(Constants.KeetaUsdAsset);
+		using Account usdToken = runtime.Accounts.FromPublicKeyString(Constants.KeetaUsdAsset);
 
 		int? usdDecimals = await Helper.GetTokenDecimals(nodeClient, usdToken, cancellationToken);
 		if (usdDecimals is null)
@@ -59,7 +59,7 @@ public sealed class AssetMovementFiatWithdrawToBankExample : IKeetaExample
 			throw new InvalidOperationException("Failed to get USD token decimals");
 		}
 
-		using Account baseToken = runtime.Accounts.FromAccount(userClient.BaseToken);
+		using Account baseToken = runtime.Accounts.FromPublicKeyString(userClient.BaseToken);
 		BigInteger baseTokenBalance = await nodeClient.GetAccountBalance(userAccount, baseToken, cancellationToken);
 		if (baseTokenBalance == BigInteger.Zero)
 		{
@@ -221,7 +221,7 @@ public sealed class AssetMovementFiatWithdrawToBankExample : IKeetaExample
 
 		Console.WriteLine("Sending USD to anchor ... please wait ...");
 
-		using Account sendTo = runtime.Accounts.FromAccount(anchorAccount);
+		using Account sendTo = runtime.Accounts.FromPublicKeyString(anchorAccount);
 		await userClient.Send(runtime, sendTo, amountToWithdraw, usdToken, external, cancellationToken);
 
 		Console.WriteLine("\nMonitoring transfer status ... (checks every 5 seconds; Ctrl+C to stop)");

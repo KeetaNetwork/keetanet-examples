@@ -102,11 +102,11 @@ public static class UserActions
 		string externalBitmap = permissionsElement[1].GetString()
 			?? throw new InvalidOperationException("grant-permission external bitmap is missing");
 
-		using Account principal = runtime.Accounts.FromAccount(principalAddress);
+		using Account principal = runtime.Accounts.FromPublicKeyString(principalAddress);
 		if (permission.TryGetProperty("target", out JsonElement targetElement)
 			&& targetElement.ValueKind == JsonValueKind.String)
 		{
-			using Account target = runtime.Accounts.FromAccount(targetElement.GetString()!);
+			using Account target = runtime.Accounts.FromPublicKeyString(targetElement.GetString()!);
 			return runtime.Operations().ModifyPermissions(principal, baseBitmap, externalBitmap, target: target);
 		}
 
@@ -118,14 +118,14 @@ public static class UserActions
 		if (action.TryGetProperty("account", out JsonElement accountElement)
 			&& accountElement.ValueKind == JsonValueKind.String)
 		{
-			return runtime.Accounts.FromAccount(accountElement.GetString()!);
+			return runtime.Accounts.FromPublicKeyString(accountElement.GetString()!);
 		}
 
 		if (action.TryGetProperty("permissionToGrant", out JsonElement permission)
 			&& permission.TryGetProperty("entity", out JsonElement entityElement)
 			&& entityElement.ValueKind == JsonValueKind.String)
 		{
-			return runtime.Accounts.FromAccount(entityElement.GetString()!);
+			return runtime.Accounts.FromPublicKeyString(entityElement.GetString()!);
 		}
 
 		return null;

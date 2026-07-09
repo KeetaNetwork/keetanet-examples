@@ -24,7 +24,7 @@ public sealed class AssetMovementEvmInboundExample : IKeetaExample
 		using Account userAccount = runtime.Accounts.FromSeed(seed, 0, "ecdsa_secp256k1");
 
 		Console.WriteLine($"Seed: {seed}");
-		Console.WriteLine($"Keeta Account: {userAccount.Address}\n");
+		Console.WriteLine($"Keeta Account: {userAccount.PublicKeyString}\n");
 
 		UserClient userClient = UserClient.FromNetwork(Network, userAccount);
 
@@ -61,7 +61,7 @@ public sealed class AssetMovementEvmInboundExample : IKeetaExample
 				SourceLocation: Constants.BaseSepoliaLocation,
 				Asset: Constants.KeetaUsdcAsset,
 				DestinationLocation: keetaDestination,
-				DestinationAddress: userAccount.Address),
+				DestinationAddress: userAccount.PublicKeyString),
 			cancellationToken);
 
 		string persistentAddress = persistentAddressResponse.GetProperty("address").GetString()
@@ -74,7 +74,7 @@ public sealed class AssetMovementEvmInboundExample : IKeetaExample
 			========================================
 			Persistent Address: {persistentAddress}
 			This address will automatically forward USDC received on Base Sepolia
-			to your Keeta account: {userAccount.Address}
+			to your Keeta account: {userAccount.PublicKeyString}
 			========================================
 
 			HOW TO GET TEST USDC:
@@ -159,7 +159,7 @@ public sealed class AssetMovementEvmInboundExample : IKeetaExample
 					IReadOnlyList<TokenBalance> balances = await nodeClient.GetAccountBalances(userAccount, monitorToken);
 					Console.WriteLine("Current Keeta Balances:");
 					Console.WriteLine(JsonSerializer.Serialize(
-						balances.Select(entry => new { token = entry.Token.Address, balance = entry.Balance.ToString() }),
+						balances.Select(entry => new { token = entry.Token.PublicKeyString, balance = entry.Balance.ToString() }),
 						new JsonSerializerOptions { WriteIndented = true }));
 
 					Console.WriteLine("Transaction completed successfully. Exiting...");

@@ -33,7 +33,7 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 		string seed = seedInput.Length == 0 ? runtime.Accounts.GenerateRandomSeed() : seedInput;
 		using Account userAccount = runtime.Accounts.FromSeed(seed, 0, "ecdsa_secp256k1");
 
-		Console.WriteLine($"Keeta Account: {userAccount.Address}");
+		Console.WriteLine($"Keeta Account: {userAccount.PublicKeyString}");
 
 		string baseRecipientAddress = Helper.ReadLine("Enter the Base Sepolia wallet address to send USDC to: ").Trim();
 		if (baseRecipientAddress.Length != 42 || !baseRecipientAddress.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
@@ -44,7 +44,7 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 		UserClient userClient = UserClient.FromNetwork(Network, userAccount);
 		using NodeClient nodeClient = runtime.CreateNodeClient(Constants.NodeApi);
 
-		using Account baseToken = runtime.Accounts.FromAccount(userClient.BaseToken);
+		using Account baseToken = runtime.Accounts.FromPublicKeyString(userClient.BaseToken);
 		BigInteger baseTokenBalance = await nodeClient.GetAccountBalance(userAccount, baseToken, cancellationToken);
 		if (baseTokenBalance == BigInteger.Zero)
 		{
@@ -54,7 +54,7 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 			}
 		}
 
-		using Account usdcToken = runtime.Accounts.FromAccount(Constants.KeetaUsdcAsset);
+		using Account usdcToken = runtime.Accounts.FromPublicKeyString(Constants.KeetaUsdcAsset);
 		BigInteger currentBalance = await nodeClient.GetAccountBalance(userAccount, usdcToken, cancellationToken);
 		Console.WriteLine($"\nCurrent USDC Balance: {currentBalance} ({Helper.FormatDecimals(currentBalance, UsdcDecimals)} USDC)");
 
@@ -135,7 +135,7 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 			? externalElement.GetString()!
 			: externalElement.GetRawText();
 
-		using Account sendTo = runtime.Accounts.FromAccount(anchorAccount);
+		using Account sendTo = runtime.Accounts.FromPublicKeyString(anchorAccount);
 		await userClient.Send(runtime, sendTo, amountToSend, usdcToken, external, cancellationToken);
 
 		Console.WriteLine("\nMonitoring transfer status... (This will check every 5 seconds. Press Ctrl+C to stop)");

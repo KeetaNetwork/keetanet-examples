@@ -36,7 +36,7 @@ public sealed class AssetMovementFiatDepositFromBankExample : IKeetaExample
 		}
 
 		using Account userAccount = runtime.Accounts.FromSeed(seed, 0, "ecdsa_secp256k1");
-		Console.WriteLine($"Keeta Account: {userAccount.Address}");
+		Console.WriteLine($"Keeta Account: {userAccount.PublicKeyString}");
 		Console.WriteLine($"USD Token: {Constants.KeetaUsdAsset}");
 		Console.WriteLine();
 
@@ -75,7 +75,7 @@ public sealed class AssetMovementFiatDepositFromBankExample : IKeetaExample
 			SourceLocation: Constants.BankAccountUsLocation,
 			Asset: assetPair,
 			DestinationLocation: keetaDestination,
-			DestinationAddress: userAccount.Address);
+			DestinationAddress: userAccount.PublicKeyString);
 
 		JsonElement depositInfo = await assetMovementClient.CreatePersistentForwardingAddress(
 			provider,

@@ -98,14 +98,14 @@ public static class LedgerPublisher
 	{
 		byte[] voteBytes = Convert.FromBase64String(temporaryVoteBase64);
 		using Vote vote = Vote.FromBytes(runtime, voteBytes);
-		using Account baseToken = runtime.Accounts.FromAccount(Constants.BaseTokenAddress);
+		using Account baseToken = runtime.Accounts.FromPublicKeyString(Constants.BaseTokenAddress);
 		using Operation? feeOperation = vote.CreateFeeSend(baseToken);
 		if (feeOperation is null)
 		{
 			return null;
 		}
 
-		string? previous = blocks.LastOrDefault(block => block.AccountAddress == feeSigner.Address)?.HashHex
+		string? previous = blocks.LastOrDefault(block => block.AccountAddress == feeSigner.PublicKeyString)?.HashHex
 			?? GetHeadHash(runtime, feeSigner, cancellationToken);
 
 		return BlockSealer.BuildSigned(

@@ -47,7 +47,7 @@ public static class Helper
 		}
 
 		using NodeClient nodeClient = runtime.CreateNodeClient(Constants.NodeApi);
-		using Account baseToken = runtime.Accounts.FromAccount(Constants.BaseTokenAddress);
+		using Account baseToken = runtime.Accounts.FromPublicKeyString(Constants.BaseTokenAddress);
 		BigInteger initial = await nodeClient.GetAccountBalance(account, baseToken, cancellationToken)
 			.ConfigureAwait(false);
 		BigInteger expectedCredit = BigInteger.Pow(10, 9) * 5;
@@ -58,7 +58,7 @@ public static class Helper
 			{
 				Content = new FormUrlEncodedContent(new Dictionary<string, string>
 				{
-					["address"] = account.Address,
+					["address"] = account.PublicKeyString,
 					["amount"] = "5",
 				}),
 			};
@@ -69,17 +69,17 @@ public static class Helper
 
 			if (response.IsSuccessStatusCode && body.Contains("Sent ", StringComparison.OrdinalIgnoreCase))
 			{
-				Console.WriteLine($"Requesting tokens from faucet for: {account.Address}");
+				Console.WriteLine($"Requesting tokens from faucet for: {account.PublicKeyString}");
 			}
 			else
 			{
 				Console.Error.WriteLine(
-					$"Faucet request failed for: {account.Address} (HTTP {(int)response.StatusCode})");
+					$"Faucet request failed for: {account.PublicKeyString} (HTTP {(int)response.StatusCode})");
 			}
 		}
 		catch (Exception error)
 		{
-			Console.Error.WriteLine($"Faucet request failed for: {account.Address} {error.Message}");
+			Console.Error.WriteLine($"Faucet request failed for: {account.PublicKeyString} {error.Message}");
 		}
 
 		return await WaitForResult(async () =>

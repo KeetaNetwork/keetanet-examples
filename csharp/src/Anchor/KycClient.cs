@@ -29,7 +29,7 @@ public sealed class KycClientExample : IKeetaExample
 		using Account userAccount = runtime.Accounts.FromSeed(seed, 0, "ecdsa_secp256k1");
 
 		Console.WriteLine($"Seed: {seed}");
-		Console.WriteLine($"Keeta Account: {userAccount.Address}\n");
+		Console.WriteLine($"Keeta Account: {userAccount.PublicKeyString}\n");
 
 		UserClient userClient = UserClient.FromNetwork(Network, userAccount);
 

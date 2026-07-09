@@ -33,7 +33,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 		}
 
 		using Account userAccount = runtime.Accounts.FromSeed(seed, 0, "ecdsa_secp256k1");
-		Console.WriteLine($"Keeta Account: {userAccount.Address}\n");
+		Console.WriteLine($"Keeta Account: {userAccount.PublicKeyString}\n");
 
 		UserClient userClient = UserClient.FromNetwork(Network, userAccount);
 		using AssetMovementClient assetMovementClient = runtime.CreateAssetMovementClient(
@@ -64,7 +64,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 			SourceLocation: Constants.BankAccountUsLocation,
 			Asset: assetPair,
 			DestinationLocation: keetaDestination,
-			DestinationAddress: userAccount.Address);
+			DestinationAddress: userAccount.PublicKeyString);
 
 		try
 		{
@@ -156,26 +156,26 @@ public sealed class KycClientShareKycExample : IKeetaExample
 			if (status.ActionRequired && status.Blockers is { } blockers)
 			{
 				if (blockers.OfType<AssetKycShareNeededBlocker>().FirstOrDefault() is { } kycShareNeeded)
-				{
+			{
 					throw new KycShareNeededException(kycShareNeeded);
-				}
+			}
 
 				if (blockers.OfType<AssetUserActionNeededBlocker>().FirstOrDefault() is { } userActionNeeded)
+			{
+				Console.WriteLine("Onboarding steps required:");
+				Console.WriteLine(JsonSerializer.Serialize(userActionNeeded.ActionsNeeded, new JsonSerializerOptions { WriteIndented = true }));
+
+				if (promptBeforeOnboarding)
 				{
-					Console.WriteLine("Onboarding steps required:");
-					Console.WriteLine(JsonSerializer.Serialize(userActionNeeded.ActionsNeeded, new JsonSerializerOptions { WriteIndented = true }));
-
-					if (promptBeforeOnboarding)
+					string proceed = Helper.ReadLine("\nComplete onboarding steps and retry? (y/n): ");
+					if (!proceed.Trim().Equals("y", StringComparison.OrdinalIgnoreCase))
 					{
-						string proceed = Helper.ReadLine("\nComplete onboarding steps and retry? (y/n): ");
-						if (!proceed.Trim().Equals("y", StringComparison.OrdinalIgnoreCase))
-						{
 							throw new InvalidOperationException("Onboarding cancelled");
-						}
 					}
+				}
 
-					await UserActions.Execute(runtime, userClient, userActionNeeded, cancellationToken);
-					Console.WriteLine("Onboarding steps completed.\n");
+				await UserActions.Execute(runtime, userClient, userActionNeeded, cancellationToken);
+				Console.WriteLine("Onboarding steps completed.\n");
 					continue;
 				}
 
@@ -222,7 +222,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 
 			foreach (string principalAddress in blocker.ShareWithPrincipals)
 			{
-				using Account principal = runtime.Accounts.FromAccount(principalAddress);
+				using Account principal = runtime.Accounts.FromPublicKeyString(principalAddress);
 				sharable.GrantAccess([principal]);
 			}
 
