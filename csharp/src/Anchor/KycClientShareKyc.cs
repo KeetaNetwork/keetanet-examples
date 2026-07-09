@@ -207,10 +207,11 @@ public sealed class KycClientShareKycExample : IKeetaExample
 
 		try
 		{
-			SharableCertificateAttributes sharable = SharableKycBuilder.Build(
-				runtime,
+			using HttpClient httpClient = new();
+			SharableCertificateAttributes sharable = await runtime.Sharables.FromCertificate(
 				selected,
 				userAccount,
+				httpClient,
 				intermediates,
 				blocker.NeededAttributes ?? [],
 				cancellationToken);
