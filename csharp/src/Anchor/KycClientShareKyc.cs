@@ -152,16 +152,22 @@ public sealed class KycClientShareKycExample : IKeetaExample
 	{
 		while (!cancellationToken.IsCancellationRequested)
 		{
-			AssetAccountStatus status = await assetMovementClient.GetAccountStatus(provider, cancellationToken);
-			if (status.ActionRequired && status.Blockers is { } blockers)
+			try
 			{
-				if (blockers.OfType<AssetKycShareNeededBlocker>().FirstOrDefault() is { } kycShareNeeded)
-			{
-					throw new KycShareNeededException(kycShareNeeded);
+				return await assetMovementClient.CreatePersistentForwardingAddress(
+					provider,
+					request,
+					cancellationToken);
 			}
-
-				if (blockers.OfType<AssetUserActionNeededBlocker>().FirstOrDefault() is { } userActionNeeded)
+			catch (KeetaException error) when (error.Code == AssetMovementBlockerErrors.KycShareNeededCode)
 			{
+				throw new KycShareNeededException(AssetMovementBlockerErrors.ParseKycShareNeeded(error));
+			}
+			catch (KeetaException error) when (error.Code == AssetMovementBlockerErrors.UserActionNeededCode)
+			{
+				AssetUserActionNeededBlocker userActionNeeded =
+					AssetMovementBlockerErrors.ParseUserActionNeeded(error);
+
 				Console.WriteLine("Onboarding steps required:");
 				Console.WriteLine(JsonSerializer.Serialize(userActionNeeded.ActionsNeeded, new JsonSerializerOptions { WriteIndented = true }));
 
@@ -170,24 +176,13 @@ public sealed class KycClientShareKycExample : IKeetaExample
 					string proceed = Helper.ReadLine("\nComplete onboarding steps and retry? (y/n): ");
 					if (!proceed.Trim().Equals("y", StringComparison.OrdinalIgnoreCase))
 					{
-							throw new InvalidOperationException("Onboarding cancelled");
+						throw new InvalidOperationException("Onboarding cancelled", error);
 					}
 				}
 
 				await UserActions.Execute(runtime, userClient, userActionNeeded, cancellationToken);
 				Console.WriteLine("Onboarding steps completed.\n");
-					continue;
-				}
-
-				throw new InvalidOperationException(
-					"Unresolved provider blocker(s): "
-					+ string.Join(", ", blockers.Select(blocker => blocker.GetType().Name)));
 			}
-
-			return await assetMovementClient.CreatePersistentForwardingAddress(
-				provider,
-				request,
-				cancellationToken);
 		}
 
 		throw new OperationCanceledException(cancellationToken);

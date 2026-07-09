@@ -65,25 +65,31 @@ public sealed class AssetMovementFiatDepositFromBankExample : IKeetaExample
 		Console.WriteLine($"Using provider: {provider.Id}");
 		Console.WriteLine();
 
-		AssetAccountStatus accountStatus = await assetMovementClient.GetAccountStatus(provider, cancellationToken);
-		if (!AccountStatusReport.IsReady(accountStatus, "a USD deposit address can be issued"))
-		{
-			return 0;
-		}
-
 		AssetCreateAddressRequest request = new(
 			SourceLocation: Constants.BankAccountUsLocation,
 			Asset: assetPair,
 			DestinationLocation: keetaDestination,
 			DestinationAddress: userAccount.PublicKeyString);
 
-		JsonElement depositInfo = await assetMovementClient.CreatePersistentForwardingAddress(
-			provider,
-			request,
-			cancellationToken);
+		try
+		{
+			JsonElement depositInfo = await assetMovementClient.CreatePersistentForwardingAddress(
+				provider,
+				request,
+				cancellationToken);
 
-		Console.WriteLine("USD bank deposit information:");
-		Console.WriteLine(JsonSerializer.Serialize(depositInfo, JsonOptions));
-		return 0;
+			Console.WriteLine("USD bank deposit information:");
+			Console.WriteLine(JsonSerializer.Serialize(depositInfo, JsonOptions));
+			return 0;
+		}
+		catch (KeetaException error)
+		{
+			if (AssetMovementBlockerErrors.TryReport(error, "a USD deposit address can be issued"))
+			{
+				return 0;
+			}
+
+			throw;
+		}
 	}
 }

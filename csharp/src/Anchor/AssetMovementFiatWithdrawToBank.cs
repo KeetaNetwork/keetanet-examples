@@ -165,12 +165,6 @@ public sealed class AssetMovementFiatWithdrawToBankExample : IKeetaExample
 		AssetProvider provider = providers[0];
 		Console.WriteLine($"\nUsing provider: {provider.Id}");
 
-		AssetAccountStatus accountStatus = await assetMovementClient.GetAccountStatus(provider, cancellationToken);
-		if (!AccountStatusReport.IsReady(accountStatus, "a USD withdrawal can be initiated"))
-		{
-			return 0;
-		}
-
 		string proceed = Helper.ReadLine("Proceed with the withdrawal? (y/n): ").Trim();
 		if (!string.Equals(proceed, "y", StringComparison.OrdinalIgnoreCase))
 		{
@@ -189,13 +183,23 @@ public sealed class AssetMovementFiatWithdrawToBankExample : IKeetaExample
 					amountToWithdraw.ToString(CultureInfo.InvariantCulture)),
 				cancellationToken);
 		}
-		catch (KeetaException error) when (error.Code == "SERVICE")
+		catch (KeetaException error)
 		{
-			Console.Error.WriteLine("The provider rejected the withdrawal request.");
-			Console.Error.WriteLine(
-				"Check your bank details: routing number must be 9 digits, state must be a valid US code (e.g. NY, CA), and account type must be checking or savings.");
-			Console.Error.WriteLine(error.Message);
-			return 1;
+			if (AssetMovementBlockerErrors.TryReport(error, "a USD withdrawal can be initiated"))
+			{
+				return 0;
+			}
+
+			if (error.Code == "SERVICE")
+			{
+				Console.Error.WriteLine("The provider rejected the withdrawal request.");
+				Console.Error.WriteLine(
+					"Check your bank details: routing number must be 9 digits, state must be a valid US code (e.g. NY, CA), and account type must be checking or savings.");
+				Console.Error.WriteLine(error.Message);
+				return 1;
+			}
+
+			throw;
 		}
 
 		Console.WriteLine($"\nTransfer initiated with ID: {transfer.Id}");
