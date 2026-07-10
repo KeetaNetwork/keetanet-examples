@@ -10,6 +10,8 @@ public sealed class AssetMovementFiatDepositFromCryptoExample : IKeetaExample
 {
 	private const string Network = "test";
 
+	private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+
 	private const string DefaultPassphrase =
 		"bottom alley wash elbow devote believe maximum amount camera way direct globe " +
 		"frost bottom tilt title ship purse always fluid tennis spread lazy track";
@@ -64,17 +66,46 @@ public sealed class AssetMovementFiatDepositFromCryptoExample : IKeetaExample
 		AssetProvider provider = providers[0];
 		Console.WriteLine($"Using provider: {provider.Id}");
 
-		JsonElement persistentAddressResponse = await assetMovementClient.CreatePersistentForwardingAddress(
-			provider,
-			new AssetCreateAddressRequest(
-				SourceLocation: Constants.ArbitrumSepoliaLocation,
-				Asset: assetPair,
-				DestinationLocation: keetaDestination,
-				DestinationAddress: userAccount.PublicKeyString),
-			cancellationToken);
+		string persistentAddress;
+		try
+		{
+			JsonElement persistentAddressResponse = await assetMovementClient.CreatePersistentForwardingAddress(
+				provider,
+				new AssetCreateAddressRequest(
+					SourceLocation: Constants.ArbitrumSepoliaLocation,
+					Asset: assetPair,
+					DestinationLocation: keetaDestination,
+					DestinationAddress: userAccount.PublicKeyString),
+				cancellationToken);
 
-		string persistentAddress = persistentAddressResponse.GetProperty("address").GetString()
-			?? throw new InvalidOperationException("Failed to create persistent forwarding address");
+			persistentAddress = persistentAddressResponse.GetProperty("address").GetString()
+				?? throw new InvalidOperationException("Failed to create persistent forwarding address");
+		}
+		catch (KeetaBlockerException refusal)
+		{
+			switch (refusal.Blocker)
+			{
+				case AssetKycShareNeededBlocker:
+					Console.Error.WriteLine(
+						"KYC attributes must be shared with the provider before an Arbitrum USDC forwarding address can be created.");
+					Console.Error.WriteLine("Complete KYC sharing (see anchor/kyc-client-sharekyc), then run this example again.");
+					return 0;
+				case AssetUserActionNeededBlocker userActionNeeded:
+					Console.Error.WriteLine(
+						"Provider onboarding steps are still required before an Arbitrum USDC forwarding address can be created.");
+					Console.Error.WriteLine("Complete the actions below (see anchor/kyc-client-sharekyc), then run this example again.");
+					Console.Error.WriteLine(JsonSerializer.Serialize(userActionNeeded.ActionsNeeded, JsonOptions));
+					return 0;
+				default:
+					throw;
+			}
+		}
+		catch (KeetaException error) when (error.Code == "SERVICE")
+		{
+			Console.Error.WriteLine("The provider rejected the forwarding address request.");
+			Console.Error.WriteLine(error.Message);
+			return 1;
+		}
 
 		Console.WriteLine($"""
 
@@ -168,7 +199,7 @@ public sealed class AssetMovementFiatDepositFromCryptoExample : IKeetaExample
 					Console.WriteLine("Current Keeta Balances:");
 					Console.WriteLine(JsonSerializer.Serialize(
 						balances.Select(entry => new { token = entry.Token.PublicKeyString, balance = entry.Balance.ToString() }),
-						new JsonSerializerOptions { WriteIndented = true }));
+						JsonOptions));
 
 					Console.WriteLine("Transaction completed successfully. Exiting...");
 					return 0;
