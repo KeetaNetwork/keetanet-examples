@@ -1,11 +1,11 @@
 using System.Text.Json;
 using KeetaNet.Anchor;
 using KeetaNet.Anchor.Crypto;
+using KeetaNet.Examples.Anchor.AssetMovement;
+using KeetaNet.Examples.Common;
 using CryptoCertificate = KeetaNet.Anchor.Crypto.Certificate;
 using OnChainCertificate = KeetaNet.Anchor.Certificate;
-using KeetaNet.Examples.Common;
 using UserClient = KeetaNet.Examples.Network.UserClient;
-using KeetaNet.Examples.Anchor.AssetMovement;
 
 namespace KeetaNet.Examples.Anchor;
 

@@ -1,8 +1,8 @@
 using KeetaNet.Anchor;
 using KeetaNet.Anchor.Crypto;
+using KeetaNet.Examples.Common;
 using CryptoCertificate = KeetaNet.Anchor.Crypto.Certificate;
 using IssuedCertificate = KeetaNet.Anchor.Certificate;
-using KeetaNet.Examples.Common;
 using UserClient = KeetaNet.Examples.Network.UserClient;
 
 namespace KeetaNet.Examples.Anchor;

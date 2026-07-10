@@ -2,9 +2,9 @@ using System.Globalization;
 using System.Numerics;
 using KeetaNet.Anchor;
 using KeetaNet.Anchor.Crypto;
-using CryptoCertificate = KeetaNet.Anchor.Crypto.Certificate;
 using KeetaNet.Examples.Common;
 using KeetaNet.Examples.Ledger;
+using CryptoCertificate = KeetaNet.Anchor.Crypto.Certificate;
 
 namespace KeetaNet.Examples.Network;
 

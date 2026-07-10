@@ -32,5 +32,10 @@ jobs:
           node-version: '${{ steps.node_version.outputs.NODE_VERSION }}'
           cache: 'npm'
 
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: csharp/global.json
+
       - name: Run Lint
         run: make -j do-lint do-type-check
