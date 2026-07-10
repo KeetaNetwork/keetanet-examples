@@ -81,15 +81,15 @@ public sealed class KycClientShareKycExample : IKeetaExample
 			Console.WriteLine(JsonSerializer.Serialize(persistentAddress, new JsonSerializerOptions { WriteIndented = true }));
 			return 0;
 		}
-		catch (KycShareNeededException shareNeeded)
+		catch (KeetaBlockerException refusal) when (refusal.Blocker is AssetKycShareNeededBlocker shareBlocker)
 		{
 			Console.WriteLine("KYC Share Instructions:");
 			Console.WriteLine(JsonSerializer.Serialize(new
 			{
-				neededAttributes = shareNeeded.Blocker.NeededAttributes,
-				shareWithPrincipals = shareNeeded.Blocker.ShareWithPrincipals,
-				acceptedIssuers = shareNeeded.Blocker.AcceptedIssuers,
-				tosFlow = shareNeeded.Blocker.TosFlow,
+				neededAttributes = shareBlocker.NeededAttributes,
+				shareWithPrincipals = shareBlocker.ShareWithPrincipals,
+				acceptedIssuers = shareBlocker.AcceptedIssuers,
+				tosFlow = shareBlocker.TosFlow,
 			}, new JsonSerializerOptions { WriteIndented = true }));
 
 			string proceed = Helper.ReadLine("\nShare KYC attributes and retry? (y/n): ");
@@ -103,14 +103,14 @@ public sealed class KycClientShareKycExample : IKeetaExample
 				runtime,
 				nodeClient,
 				userAccount,
-				shareNeeded.Blocker,
+				shareBlocker,
 				cancellationToken);
 
 			IReadOnlyList<string> sharedAttributeNames = sharable.GetAttributeNames();
 			Console.WriteLine(
 				$"Sharing {sharedAttributeNames.Count} KYC attributes: {string.Join(", ", sharedAttributeNames)}\n");
 
-			if (shareNeeded.Blocker.TosFlow is { ValueKind: JsonValueKind.Object } tosFlow
+			if (shareBlocker.TosFlow is { ValueKind: JsonValueKind.Object } tosFlow
 				&& tosFlow.TryGetProperty("type", out JsonElement tosType)
 				&& tosType.GetString() == "url-flow"
 				&& tosFlow.TryGetProperty("url", out JsonElement tosUrl))
@@ -159,15 +159,12 @@ public sealed class KycClientShareKycExample : IKeetaExample
 					request,
 					cancellationToken);
 			}
-			catch (KeetaException error) when (error.Code == AssetMovementBlockerErrors.KycShareNeededCode)
+			catch (KeetaBlockerException refusal) when (refusal.Blocker is AssetKycShareNeededBlocker)
 			{
-				throw new KycShareNeededException(AssetMovementBlockerErrors.ParseKycShareNeeded(error));
+				throw;
 			}
-			catch (KeetaException error) when (error.Code == AssetMovementBlockerErrors.UserActionNeededCode)
+			catch (KeetaBlockerException refusal) when (refusal.Blocker is AssetUserActionNeededBlocker userActionNeeded)
 			{
-				AssetUserActionNeededBlocker userActionNeeded =
-					AssetMovementBlockerErrors.ParseUserActionNeeded(error);
-
 				Console.WriteLine("Onboarding steps required:");
 				Console.WriteLine(JsonSerializer.Serialize(userActionNeeded.ActionsNeeded, new JsonSerializerOptions { WriteIndented = true }));
 
@@ -176,7 +173,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 					string proceed = Helper.ReadLine("\nComplete onboarding steps and retry? (y/n): ");
 					if (!proceed.Trim().Equals("y", StringComparison.OrdinalIgnoreCase))
 					{
-						throw new InvalidOperationException("Onboarding cancelled", error);
+						throw new InvalidOperationException("Onboarding cancelled", refusal);
 					}
 				}
 
@@ -312,10 +309,5 @@ public sealed class KycClientShareKycExample : IKeetaExample
 			: "No valid on-chain KYC certificate found";
 		throw new InvalidOperationException(
 			string.Join('\n', new List<string> { message }.Concat(rejections.Select(reason => $"  - {reason}"))));
-	}
-
-	private sealed class KycShareNeededException(AssetKycShareNeededBlocker blocker) : Exception("KYC share is required")
-	{
-		public AssetKycShareNeededBlocker Blocker { get; } = blocker;
 	}
 }

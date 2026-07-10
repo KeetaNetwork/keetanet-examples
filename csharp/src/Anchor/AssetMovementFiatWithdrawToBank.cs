@@ -3,7 +3,6 @@ using System.Numerics;
 using System.Text.Json;
 using KeetaNet.Anchor;
 using KeetaNet.Anchor.Crypto;
-using KeetaNet.Examples.Anchor.AssetMovement;
 using KeetaNet.Examples.Common;
 using UserClient = KeetaNet.Examples.Network.UserClient;
 
@@ -183,23 +182,30 @@ public sealed class AssetMovementFiatWithdrawToBankExample : IKeetaExample
 					amountToWithdraw.ToString(CultureInfo.InvariantCulture)),
 				cancellationToken);
 		}
-		catch (KeetaException error)
+		catch (KeetaBlockerException refusal)
 		{
-			if (AssetMovementBlockerErrors.TryReport(error, "a USD withdrawal can be initiated"))
+			switch (refusal.Blocker)
 			{
-				return 0;
+				case AssetKycShareNeededBlocker:
+					Console.Error.WriteLine("KYC attributes must be shared with the provider before a USD withdrawal can be initiated.");
+					Console.Error.WriteLine("Complete KYC sharing (see anchor/kyc-client-sharekyc), then run this example again.");
+					return 0;
+				case AssetUserActionNeededBlocker userActionNeeded:
+					Console.Error.WriteLine("Provider onboarding steps are still required before a USD withdrawal can be initiated.");
+					Console.Error.WriteLine("Complete the actions below (see anchor/kyc-client-sharekyc), then run this example again.");
+					Console.Error.WriteLine(JsonSerializer.Serialize(userActionNeeded.ActionsNeeded, JsonOptions));
+					return 0;
+				default:
+					throw;
 			}
-
-			if (error.Code == "SERVICE")
-			{
-				Console.Error.WriteLine("The provider rejected the withdrawal request.");
-				Console.Error.WriteLine(
-					"Check your bank details: routing number must be 9 digits, state must be a valid US code (e.g. NY, CA), and account type must be checking or savings.");
-				Console.Error.WriteLine(error.Message);
-				return 1;
-			}
-
-			throw;
+		}
+		catch (KeetaException error) when (error.Code == "SERVICE")
+		{
+			Console.Error.WriteLine("The provider rejected the withdrawal request.");
+			Console.Error.WriteLine(
+				"Check your bank details: routing number must be 9 digits, state must be a valid US code (e.g. NY, CA), and account type must be checking or savings.");
+			Console.Error.WriteLine(error.Message);
+			return 1;
 		}
 
 		Console.WriteLine($"\nTransfer initiated with ID: {transfer.Id}");

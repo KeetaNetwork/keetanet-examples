@@ -1,7 +1,6 @@
 using System.Text.Json;
 using KeetaNet.Anchor;
 using KeetaNet.Anchor.Crypto;
-using KeetaNet.Examples.Anchor.AssetMovement;
 using KeetaNet.Examples.Common;
 using UserClient = KeetaNet.Examples.Network.UserClient;
 
@@ -82,14 +81,22 @@ public sealed class AssetMovementFiatDepositFromBankExample : IKeetaExample
 			Console.WriteLine(JsonSerializer.Serialize(depositInfo, JsonOptions));
 			return 0;
 		}
-		catch (KeetaException error)
+		catch (KeetaBlockerException refusal)
 		{
-			if (AssetMovementBlockerErrors.TryReport(error, "a USD deposit address can be issued"))
+			switch (refusal.Blocker)
 			{
-				return 0;
+				case AssetKycShareNeededBlocker:
+					Console.Error.WriteLine("KYC attributes must be shared with the provider before a USD deposit address can be issued.");
+					Console.Error.WriteLine("Complete KYC sharing (see anchor/kyc-client-sharekyc), then run this example again.");
+					return 0;
+				case AssetUserActionNeededBlocker userActionNeeded:
+					Console.Error.WriteLine("Provider onboarding steps are still required before a USD deposit address can be issued.");
+					Console.Error.WriteLine("Complete the actions below (see anchor/kyc-client-sharekyc), then run this example again.");
+					Console.Error.WriteLine(JsonSerializer.Serialize(userActionNeeded.ActionsNeeded, JsonOptions));
+					return 0;
+				default:
+					throw;
 			}
-
-			throw;
 		}
 	}
 }
