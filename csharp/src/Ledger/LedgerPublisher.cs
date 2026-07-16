@@ -69,7 +69,7 @@ public static class LedgerPublisher
 		List<string> encoded = blocks.Select(block => Convert.ToBase64String(block.ToBytes())).ToList();
 		IReadOnlyList<string> temporary = RequestVotes(encoded, priorVotes: null, cancellationToken);
 
-		SignedBlock? feeBlock = BuildFeeBlock(runtime, feeSigner, blocks, temporary[0], cancellationToken);
+		SignedBlock? feeBlock = BuildFeeBlock(runtime, feeSigner, blocks, temporary, cancellationToken);
 		try
 		{
 			List<SignedBlock> all = blocks.ToList();
@@ -93,30 +93,56 @@ public static class LedgerPublisher
 		WasmRuntime runtime,
 		Account feeSigner,
 		IReadOnlyList<SignedBlock> blocks,
-		string temporaryVoteBase64,
+		IReadOnlyList<string> temporaryVoteBase64,
 		CancellationToken cancellationToken)
 	{
-		byte[] voteBytes = Convert.FromBase64String(temporaryVoteBase64);
-		using Vote vote = Vote.FromBytes(runtime, voteBytes);
 		using Account baseToken = runtime.Accounts.FromPublicKeyString(Constants.BaseTokenAddress);
-		using Operation? feeOperation = vote.CreateFeeSend(baseToken);
-		if (feeOperation is null)
+		List<Operation> feeOperations = new();
+		List<Vote> votes = new();
+
+		try
 		{
-			return null;
+			foreach (string encoded in temporaryVoteBase64)
+			{
+				Vote vote = Vote.FromBytes(runtime, Convert.FromBase64String(encoded));
+				votes.Add(vote);
+				Operation? feeOperation = vote.CreateFeeSend(baseToken);
+				if (feeOperation is not null)
+				{
+					feeOperations.Add(feeOperation);
+				}
+			}
+
+			if (feeOperations.Count == 0)
+			{
+				return null;
+			}
+
+			string? previous = blocks.LastOrDefault(block => block.AccountAddress == feeSigner.PublicKeyString)?.HashHex
+				?? GetHeadHash(runtime, feeSigner, cancellationToken);
+
+			return BlockSealer.BuildSigned(
+				runtime,
+				feeSigner,
+				feeSigner,
+				Constants.NetworkId,
+				feeOperations,
+				purpose: "fee",
+				headHashHex: previous,
+				cancellationToken);
 		}
+		finally
+		{
+			foreach (Operation operation in feeOperations)
+			{
+				operation.Dispose();
+			}
 
-		string? previous = blocks.LastOrDefault(block => block.AccountAddress == feeSigner.PublicKeyString)?.HashHex
-			?? GetHeadHash(runtime, feeSigner, cancellationToken);
-
-		return BlockSealer.BuildSigned(
-			runtime,
-			feeSigner,
-			feeSigner,
-			Constants.NetworkId,
-			feeOperation,
-			purpose: "fee",
-			headHashHex: previous,
-			cancellationToken);
+			foreach (Vote vote in votes)
+			{
+				vote.Dispose();
+			}
+		}
 	}
 
 	private static void PublishStaple(
@@ -161,7 +187,22 @@ public static class LedgerPublisher
 			};
 
 			using HttpResponseMessage response = Http.SendAsync(request, cancellationToken).GetAwaiter().GetResult();
-			response.EnsureSuccessStatusCode();
+			string responseBody = response.Content.ReadAsStringAsync(cancellationToken).GetAwaiter().GetResult();
+			if (!response.IsSuccessStatusCode)
+			{
+				throw new HttpRequestException(
+					$"Publish request failed with {(int)response.StatusCode} {response.ReasonPhrase}: {responseBody}");
+			}
+
+			// Node returns HTTP 200 with { "publish": false } when the staple was not accepted.
+			using JsonDocument document = JsonDocument.Parse(
+				string.IsNullOrWhiteSpace(responseBody) ? "{}" : responseBody);
+			if (!document.RootElement.TryGetProperty("publish", out JsonElement publishElement)
+				|| publishElement.ValueKind != JsonValueKind.True)
+			{
+				throw new InvalidOperationException(
+					$"node did not publish staple: {responseBody}");
+			}
 		}
 		finally
 		{
@@ -178,6 +219,7 @@ public static class LedgerPublisher
 		CancellationToken cancellationToken)
 	{
 		List<string> votes = new();
+		List<string> errors = new();
 		foreach (string api in Constants.RepresentativeApis)
 		{
 			try
@@ -185,15 +227,17 @@ public static class LedgerPublisher
 				string vote = RequestVote(api, blocksBase64, priorVotes, cancellationToken);
 				votes.Add(vote);
 			}
-			catch (HttpRequestException)
+			catch (Exception error) when (error is HttpRequestException or InvalidOperationException or JsonException)
 			{
 				// Individual reps may decline; quorum needs at least one successful vote.
+				errors.Add($"{api}: {error.Message}");
 			}
 		}
 
 		if (votes.Count == 0)
 		{
-			throw new InvalidOperationException("no representative returned a vote");
+			throw new InvalidOperationException(
+				"no representative returned a vote" + (errors.Count == 0 ? string.Empty : $": {string.Join("; ", errors)}"));
 		}
 
 		return votes;
