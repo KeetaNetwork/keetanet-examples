@@ -24,9 +24,10 @@ node_modules/.done: package.json
 node_modules: node_modules/.done
 	@touch node_modules
 
-# Run linting
+# Run linting (TypeScript + C# examples)
 do-lint: node_modules
 	npm run eslint -- --config .eslint.config.mjs $(KEETANET_EXAMPLES_LINT_ARGS)
+	$(MAKE) -C csharp do-lint
 
 # Type Checking
 do-type-check: node_modules

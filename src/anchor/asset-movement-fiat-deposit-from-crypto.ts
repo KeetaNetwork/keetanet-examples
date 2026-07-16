@@ -10,6 +10,7 @@
  */
 /* eslint-disable @typescript-eslint/no-base-to-string */
 import * as KeetaAnchor from '@keetanetwork/anchor';
+import { Errors } from '@keetanetwork/anchor/services/asset-movement/common.js';
 import { debugPrintableObject as DPO, promptUser } from '../helper.js';
 import * as util from 'util';
 
@@ -105,24 +106,44 @@ async function main() {
 		throw(new Error('Provider is undefined'));
 	}
 
+	console.log(`Using provider: ${String(provider.providerID)}`);
+
 	// Create a persistent forwarding address on Arbitrum that will
 	// automatically forward received USDC to USD in your Keeta account
-	const persistentAddressResponse = await provider.createPersistentForwardingAddress({
-		account: userAccount,
-		asset: ASSET_PAIR,
-		sourceLocation: {
-			type: 'chain',
-			chain: { type: 'evm', chainId: ARBITRUM_CHAIN_ID }
-		},
-		destinationLocation: keetaDestination,
-		destinationAddress: userAccount.publicKeyString.get()
-	});
+	let persistentAddress;
+	try {
+		const persistentAddressResponse = await provider.createPersistentForwardingAddress({
+			account: userAccount,
+			asset: ASSET_PAIR,
+			sourceLocation: {
+				type: 'chain',
+				chain: { type: 'evm', chainId: ARBITRUM_CHAIN_ID }
+			},
+			destinationLocation: keetaDestination,
+			destinationAddress: userAccount.publicKeyString.get()
+		});
 
-	if (!persistentAddressResponse) {
-		throw(new Error('No provider could create a persistent forwarding address'));
+		if (!persistentAddressResponse) {
+			throw(new Error('No provider could create a persistent forwarding address'));
+		}
+
+		persistentAddress = persistentAddressResponse;
+	} catch (error) {
+		if (Errors.KYCShareNeeded.isInstance(error)) {
+			console.error('KYC attributes must be shared with the provider before an Arbitrum USDC forwarding address can be created.');
+			console.error('Complete KYC sharing (see kyc-client-sharekyc.ts), then run this example again.');
+			return(true);
+		}
+
+		if (Errors.UserActionNeeded.isInstance(error)) {
+			console.error('Provider onboarding steps are still required before an Arbitrum USDC forwarding address can be created.');
+			console.error('Complete the actions below (see kyc-client-sharekyc.ts), then run this example again.');
+			console.error(util.inspect(DPO(error.actionsNeeded), { depth: 4, colors: true }));
+			return(true);
+		}
+
+		throw(error);
 	}
-
-	const persistentAddress = persistentAddressResponse;
 
 	if (network === 'test') {
 		// Display the forwarding address for Sepolia

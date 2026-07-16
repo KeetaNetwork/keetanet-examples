@@ -74,8 +74,8 @@ export async function getFaucetTokens(acct: Account | string, network: Networks)
 		account = acct.publicKeyString.get();
 	}
 
-	await using tempUserClient = KeetaNet.UserClient.fromNetwork(network, null);
-	const initialBalance = await tempUserClient.client.getBalance(account, tempUserClient.baseToken);
+	await using userClient = KeetaNet.UserClient.fromNetwork(network, null);
+	const initialBalance = await userClient.client.getBalance(account, userClient.baseToken);
 
 	// Make a request to the Faucet for KTA tokens
 	try {
@@ -101,7 +101,7 @@ export async function getFaucetTokens(acct: Account | string, network: Networks)
 
 	// Wait for the account balance to be updated
 	const balanceResult = await waitForResult(async function() {
-		const balance = await tempUserClient.client.getBalance(account, tempUserClient.baseToken);
+		const balance = await userClient.client.getBalance(account, userClient.baseToken);
 		return(balance >= (initialBalance + 5n));
 	});
 

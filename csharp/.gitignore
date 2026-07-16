@@ -1,0 +1,29 @@
+# Build output (matches anchor-csharp)
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+artifacts/
+
+# Test / coverage
+[Tt]est[Rr]esults/
+*.coverage
+*.lcov
+coverage*.json
+coverage*.xml
+coverage*.info
+
+# NuGet
+*.nupkg
+*.snupkg
+.packages/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# OS
+.DS_Store
+Thumbs.db
