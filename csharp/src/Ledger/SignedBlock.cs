@@ -28,7 +28,7 @@ public sealed class SignedBlock : GuestHandle
 			try
 			{
 				return GuestInterop.Run(Runtime, () =>
-					GuestInterop.TakeString(Runtime, GuestInterop.Invoke(Runtime, "keeta_account_address", accountHandle)));
+					GuestInterop.TakeString(Runtime, GuestInterop.Invoke(Runtime, "keeta_account_public_key_string", accountHandle)));
 			}
 			finally
 			{
