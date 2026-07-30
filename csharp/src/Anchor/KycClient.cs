@@ -3,13 +3,12 @@ using KeetaNet.Anchor.Crypto;
 using KeetaNet.Examples.Common;
 using CryptoCertificate = KeetaNet.Anchor.Crypto.Certificate;
 using IssuedCertificate = KeetaNet.Anchor.Certificate;
-using UserClient = KeetaNet.Examples.Network.UserClient;
 
 namespace KeetaNet.Examples.Anchor;
 
 public sealed class KycClientExample : IKeetaExample
 {
-	private const string Network = "test";
+	private const KeetaNetwork Network = KeetaNetwork.Test;
 	private static readonly string[] Countries = ["US"];
 
 	public string Id => "anchor/kyc-client";
@@ -31,18 +30,17 @@ public sealed class KycClientExample : IKeetaExample
 		Console.WriteLine($"Seed: {seed}");
 		Console.WriteLine($"Keeta Account: {userAccount.PublicKeyString}\n");
 
-		UserClient userClient = UserClient.FromNetwork(Network, userAccount);
+		using UserClient userClient = runtime.CreateUserClient(Network, userAccount);
 
-		if (!await Helper.GetFaucetTokens(runtime, userAccount, Network, cancellationToken))
+		if (!await Helper.GetFaucetTokens(userClient, Network, cancellationToken))
 		{
 			throw new InvalidOperationException("Failed to get Faucet Tokens");
 		}
 
 		using KycClient kycClient = runtime.CreateKycClient(
-			Constants.NodeApi,
-			userClient.NetworkAddress,
+			Network.RepresentativeApiUrl(),
+			Constants.MetadataRoot,
 			userAccount);
-		using NodeClient nodeClient = runtime.CreateNodeClient(Constants.NodeApi);
 
 		SupportedCountries supportedCountries = await kycClient.GetSupportedCountries(cancellationToken);
 		Console.WriteLine(
@@ -65,10 +63,10 @@ public sealed class KycClientExample : IKeetaExample
 			throw new InvalidOperationException("Footprint KYC provider not found");
 		}
 
-		using CryptoCertificate providerCa = kycClient.GetCA(provider);
+		using CryptoCertificate providerCa = provider.GetCA();
 		Console.WriteLine($"Found KYC provider: {provider.Id} ({providerCa.Subject})");
 
-		VerificationOutcome created = await kycClient.StartVerification(provider, Countries, cancellationToken: cancellationToken);
+		VerificationOutcome created = await provider.StartVerification(Countries, cancellationToken: cancellationToken);
 		if (created.Ready is null)
 		{
 			throw new InvalidOperationException("Verification was not ready immediately after creation");
@@ -109,7 +107,7 @@ public sealed class KycClientExample : IKeetaExample
 		Console.WriteLine("Polling for KYC certificate...");
 		while (!cancellationToken.IsCancellationRequested)
 		{
-			CertificatesOutcome results = await kycClient.GetCertificates(provider, verification.Id, cancellationToken);
+			CertificatesOutcome results = await provider.GetCertificates(verification.Id, cancellationToken);
 			if (results.Ready is null)
 			{
 				Console.Write('.');
@@ -141,15 +139,10 @@ public sealed class KycClientExample : IKeetaExample
 					Console.WriteLine($"    Full name (decrypted): {fullName.AsText()}");
 				}
 
-				await userClient.ModifyCertificate(
-					runtime,
-					issued.Value,
-					issued.Intermediates,
-					cancellationToken: cancellationToken).ConfigureAwait(false);
+				await PublishCertificate(runtime, userClient, issued, cancellationToken).ConfigureAwait(false);
 			}
 
-			IReadOnlyList<IssuedCertificate> onChain =
-				await nodeClient.GetAllCertificates(userAccount, cancellationToken);
+			IReadOnlyList<IssuedCertificate> onChain = await userClient.GetAllCertificates(cancellationToken);
 			Console.WriteLine($"\nOn-chain certificates for this account: {onChain.Count}");
 			Console.WriteLine(
 				"\nKYC verification complete! The KYC certificate is now attached to your account on-chain.");
@@ -157,5 +150,36 @@ public sealed class KycClientExample : IKeetaExample
 		}
 
 		return 0;
+	}
+
+	/// <summary>Publish <paramref name="issued"/> with its intermediates recorded as the bundle.</summary>
+	private static async Task PublishCertificate(
+		WasmRuntime runtime,
+		UserClient userClient,
+		IssuedCertificate issued,
+		CancellationToken cancellationToken)
+	{
+		List<CryptoCertificate> intermediates = new();
+		try
+		{
+			foreach (string intermediatePem in issued.Intermediates)
+			{
+				intermediates.Add(runtime.Certificates.Parse(intermediatePem));
+			}
+
+			using CryptoCertificate certificate = runtime.Certificates.Parse(issued.Value);
+			await userClient.ModifyCertificate(
+				AdjustMethod.Add,
+				certificate,
+				intermediates,
+				cancellationToken: cancellationToken).ConfigureAwait(false);
+		}
+		finally
+		{
+			foreach (CryptoCertificate intermediate in intermediates)
+			{
+				intermediate.Dispose();
+			}
+		}
 	}
 }
