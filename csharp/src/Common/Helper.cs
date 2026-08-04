@@ -112,7 +112,7 @@ public static class Helper
 		Account token,
 		CancellationToken cancellationToken = default)
 	{
-		AccountState state = await client.GetAccountState(token, cancellationToken).ConfigureAwait(false);
+		AccountState state = await client.GetAccountInfo(token, cancellationToken).ConfigureAwait(false);
 
 		if (state.Info?.Metadata is not { Length: > 0 } metadataBase64)
 		{

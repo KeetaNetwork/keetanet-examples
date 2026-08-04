@@ -14,7 +14,9 @@ words:
   - wasmtime
   - kyc
   - ed25519
+  - secp
   - secp256k1
+  - tkna
   - passphrase
   - slnx
   - sharekyc
