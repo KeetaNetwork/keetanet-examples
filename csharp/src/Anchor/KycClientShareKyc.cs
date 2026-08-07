@@ -5,13 +5,12 @@ using KeetaNet.Examples.Anchor.AssetMovement;
 using KeetaNet.Examples.Common;
 using CryptoCertificate = KeetaNet.Anchor.Crypto.Certificate;
 using OnChainCertificate = KeetaNet.Anchor.Certificate;
-using UserClient = KeetaNet.Examples.Network.UserClient;
 
 namespace KeetaNet.Examples.Anchor;
 
 public sealed class KycClientShareKycExample : IKeetaExample
 {
-	private const string Network = "test";
+	private const KeetaNetwork Network = KeetaNetwork.Test;
 
 	public string Id => "anchor/kyc-client-sharekyc";
 
@@ -35,14 +34,13 @@ public sealed class KycClientShareKycExample : IKeetaExample
 		using Account userAccount = runtime.Accounts.FromSeed(seed, 0, "ecdsa_secp256k1");
 		Console.WriteLine($"Keeta Account: {userAccount.PublicKeyString}\n");
 
-		UserClient userClient = UserClient.FromNetwork(Network, userAccount);
+		using UserClient userClient = runtime.CreateUserClient(Network, userAccount);
 		using AssetMovementClient assetMovementClient = runtime.CreateAssetMovementClient(
-			Constants.NodeApi,
-			userClient.NetworkAddress,
+			Network.RepresentativeApiUrl(),
+			Constants.MetadataRoot,
 			userAccount);
-		using NodeClient nodeClient = runtime.CreateNodeClient(Constants.NodeApi);
 
-		string keetaDestination = $"chain:keeta:{userClient.Network}";
+		string keetaDestination = $"chain:keeta:{Network.Id()}";
 		AssetOrPair assetPair = AssetOrPair.Pair("USD", Constants.KeetaUsdAsset);
 
 		IReadOnlyList<AssetProvider> providers = await assetMovementClient.GetProvidersForTransfer(
@@ -68,9 +66,8 @@ public sealed class KycClientShareKycExample : IKeetaExample
 
 		try
 		{
-			JsonElement persistentAddress = await CreatePersistentForwardingAddressWithOnboarding(
+			AssetForwardingAddress persistentAddress = await CreatePersistentForwardingAddressWithOnboarding(
 				runtime,
-				assetMovementClient,
 				provider,
 				userClient,
 				persistentAddressRequest,
@@ -101,7 +98,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 
 			using SharableCertificateAttributes sharable = await BuildSharableKycAttributes(
 				runtime,
-				nodeClient,
+				userClient,
 				userAccount,
 				shareBlocker,
 				cancellationToken);
@@ -119,16 +116,14 @@ public sealed class KycClientShareKycExample : IKeetaExample
 				Helper.ReadLine("Press Enter after accepting TOS: ");
 			}
 
-			await assetMovementClient.ShareKycAttributesAndWait(
-				provider,
+			await provider.ShareKycAttributesAndWait(
 				new AssetShareKycRequest(sharable.ToPem()),
 				cancellationToken: cancellationToken);
 
 			Console.WriteLine("KYC attributes shared.\n");
 
-			JsonElement createdAddress = await CreatePersistentForwardingAddressWithOnboarding(
+			AssetForwardingAddress createdAddress = await CreatePersistentForwardingAddressWithOnboarding(
 				runtime,
-				assetMovementClient,
 				provider,
 				userClient,
 				persistentAddressRequest,
@@ -141,9 +136,8 @@ public sealed class KycClientShareKycExample : IKeetaExample
 		}
 	}
 
-	private static async Task<JsonElement> CreatePersistentForwardingAddressWithOnboarding(
+	private static async Task<AssetForwardingAddress> CreatePersistentForwardingAddressWithOnboarding(
 		WasmRuntime runtime,
-		AssetMovementClient assetMovementClient,
 		AssetProvider provider,
 		UserClient userClient,
 		AssetCreateAddressRequest request,
@@ -154,10 +148,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 		{
 			try
 			{
-				return await assetMovementClient.CreatePersistentForwardingAddress(
-					provider,
-					request,
-					cancellationToken);
+				return await provider.CreatePersistentForwardingAddress(request, cancellationToken);
 			}
 			catch (KeetaBlockerException refusal) when (refusal.Blocker is AssetKycShareNeededBlocker)
 			{
@@ -177,7 +168,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 					}
 				}
 
-				await UserActions.Execute(runtime, userClient, userActionNeeded, cancellationToken);
+				await UserActions.Execute(runtime, userClient, Network, userActionNeeded, cancellationToken);
 				Console.WriteLine("Onboarding steps completed.\n");
 			}
 		}
@@ -187,7 +178,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 
 	private static async Task<SharableCertificateAttributes> BuildSharableKycAttributes(
 		WasmRuntime runtime,
-		NodeClient nodeClient,
+		UserClient userClient,
 		Account userAccount,
 		AssetKycShareNeededBlocker blocker,
 		CancellationToken cancellationToken)
@@ -197,8 +188,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 
 		(KycCertificate selected, IReadOnlyList<CryptoCertificate> intermediates) = await SelectOnChainKycCertificate(
 			runtime,
-			nodeClient,
-			userAccount,
+			userClient,
 			requiresTrustedChain,
 			cancellationToken);
 
@@ -233,13 +223,11 @@ public sealed class KycClientShareKycExample : IKeetaExample
 
 	private static async Task<(KycCertificate Certificate, IReadOnlyList<CryptoCertificate> Intermediates)> SelectOnChainKycCertificate(
 		WasmRuntime runtime,
-		NodeClient nodeClient,
-		Account userAccount,
+		UserClient userClient,
 		bool requireTrustedChain,
 		CancellationToken cancellationToken)
 	{
-		IReadOnlyList<OnChainCertificate> records =
-			await nodeClient.GetAllCertificates(userAccount, cancellationToken);
+		IReadOnlyList<OnChainCertificate> records = await userClient.GetAllCertificates(cancellationToken);
 		if (records.Count == 0)
 		{
 			throw new InvalidOperationException("No on-chain KYC certificates found for this account");

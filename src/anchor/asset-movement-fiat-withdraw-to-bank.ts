@@ -7,7 +7,7 @@
 
 import * as KeetaAnchor from '@keetanetwork/anchor';
 import { Errors, type RecipientResolved } from '@keetanetwork/anchor/services/asset-movement/common.js';
-import { debugPrintableObject as DPO, formatDecimals, getFaucetTokens, getTokenDecimals, promptUser } from '../helper.js';
+import { debugPrintableObject as DPO, MetadataRoot, formatDecimals, getFaucetTokens, getTokenDecimals, promptUser } from '../helper.js';
 import * as util from 'util';
 
 const Account = KeetaAnchor.KeetaNet.lib.Account;
@@ -104,7 +104,7 @@ async function main() {
 	} as const;
 
 	const assetMovementClient = new KeetaAnchor.AssetMovement.Client(userClient, {
-		root: userClient.networkAddress,
+		root: Account.fromPublicKeyString(MetadataRoot),
 		...logger
 	});
 

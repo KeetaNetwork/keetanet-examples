@@ -2,7 +2,6 @@ using System.Text.Json;
 using KeetaNet.Anchor;
 using KeetaNet.Anchor.Crypto;
 using KeetaNet.Examples.Common;
-using UserClient = KeetaNet.Examples.Network.UserClient;
 
 namespace KeetaNet.Examples.Anchor;
 
@@ -12,7 +11,7 @@ namespace KeetaNet.Examples.Anchor;
 /// </summary>
 public sealed class AssetMovementFiatDepositFromBankExample : IKeetaExample
 {
-	private const string Network = "test";
+	private const KeetaNetwork Network = KeetaNetwork.Test;
 
 	private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
@@ -39,13 +38,12 @@ public sealed class AssetMovementFiatDepositFromBankExample : IKeetaExample
 		Console.WriteLine($"USD Token: {Constants.KeetaUsdAsset}");
 		Console.WriteLine();
 
-		UserClient userClient = UserClient.FromNetwork(Network, userAccount);
 		using AssetMovementClient assetMovementClient = runtime.CreateAssetMovementClient(
-			Constants.NodeApi,
-			userClient.NetworkAddress,
+			Network.RepresentativeApiUrl(),
+			Constants.MetadataRoot,
 			userAccount);
 
-		string keetaDestination = $"chain:keeta:{userClient.Network}";
+		string keetaDestination = $"chain:keeta:{Network.Id()}";
 		AssetOrPair assetPair = AssetOrPair.Pair("USD", Constants.KeetaUsdAsset);
 
 		IReadOnlyList<AssetProvider> providers = await assetMovementClient.GetProvidersForTransfer(
@@ -72,8 +70,7 @@ public sealed class AssetMovementFiatDepositFromBankExample : IKeetaExample
 
 		try
 		{
-			JsonElement depositInfo = await assetMovementClient.CreatePersistentForwardingAddress(
-				provider,
+			AssetForwardingAddress depositInfo = await provider.CreatePersistentForwardingAddress(
 				request,
 				cancellationToken);
 

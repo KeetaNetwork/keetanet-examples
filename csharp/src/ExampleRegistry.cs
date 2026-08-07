@@ -12,6 +12,10 @@ public static class ExampleRegistry
 
 	private static IReadOnlyList<IKeetaExample> BuildExamples() =>
 	[
+		new Network.AccountsCreateExample(),
+		new Ledger.TokenManagementExample(),
+		new Ledger.SendAndListenExample(),
+		new Anchor.EncryptedContainerExample(),
 		new Anchor.KycClientExample(),
 		new Anchor.KycClientShareKycExample(),
 		new Anchor.AssetMovementEvmInboundExample(),
@@ -19,5 +23,6 @@ public static class ExampleRegistry
 		new Anchor.AssetMovementFiatDepositFromCryptoExample(),
 		new Anchor.AssetMovementFiatDepositFromBankExample(),
 		new Anchor.AssetMovementFiatWithdrawToBankExample(),
+		new Anchor.AssetMovementPersistentAddressExample(),
 	];
 }

@@ -1,133 +1,160 @@
+using System.Globalization;
+using System.Numerics;
 using System.Text.Json;
 using KeetaNet.Anchor;
 using KeetaNet.Anchor.Crypto;
-using KeetaNet.Examples.Ledger;
 using CryptoCertificate = KeetaNet.Anchor.Crypto.Certificate;
-using UserClient = KeetaNet.Examples.Network.UserClient;
 
 namespace KeetaNet.Examples.Anchor.AssetMovement;
 
-/// <summary>Translates provider onboarding actions into ledger operations.</summary>
+/// <summary>
+/// Translates provider onboarding actions into ledger writes, the port of the
+/// reference <c>UserActionNeeded.addOperationsToBuilder</c>.
+/// </summary>
 public static class UserActions
 {
 	public static async Task Execute(
 		WasmRuntime runtime,
 		UserClient userClient,
+		KeetaNetwork network,
 		AssetUserActionNeededBlocker blocker,
 		CancellationToken cancellationToken)
 	{
-		List<Operation> operations = new();
-		Account signer = userClient.Signer
-			?? throw new InvalidOperationException("No signer available in a read-only UserClient");
-		Account blockAccount = signer;
-
-		try
+		foreach (JsonElement action in blocker.ActionsNeeded)
 		{
-			foreach (JsonElement action in blocker.ActionsNeeded)
-			{
-				string? type = action.TryGetProperty("type", out JsonElement typeElement)
-					? typeElement.GetString()
-					: null;
+			string? type = action.TryGetProperty("type", out JsonElement typeElement)
+				? typeElement.GetString()
+				: null;
 
-				switch (type)
-				{
-					case "add-certificate":
-						operations.Add(BuildAddCertificateOperation(runtime, action));
-						blockAccount = ResolveBlockAccount(runtime, action) ?? blockAccount;
-						break;
-					case "grant-permission":
-						operations.Add(BuildGrantPermissionOperation(runtime, action));
-						blockAccount = ResolveBlockAccount(runtime, action) ?? blockAccount;
-						break;
-					case "provider-kyc-flow":
-						throw new InvalidOperationException(
-							"Provider KYC flow actions must be completed out-of-band before retrying.");
-					default:
-						throw new InvalidOperationException($"Unsupported onboarding action type: {type ?? "(missing)"}");
-				}
-			}
-
-			if (operations.Count == 0)
+			switch (type)
 			{
-				return;
-			}
-
-			await userClient.PublishOperations(runtime, operations, blockAccount, cancellationToken).ConfigureAwait(false);
-		}
-		finally
-		{
-			foreach (Operation operation in operations)
-			{
-				operation.Dispose();
+				case "add-certificate":
+					await AddCertificate(runtime, userClient, network, action, cancellationToken).ConfigureAwait(false);
+					break;
+				case "grant-permission":
+					await GrantPermission(runtime, userClient, network, action, cancellationToken).ConfigureAwait(false);
+					break;
+				case "provider-kyc-flow":
+					throw new InvalidOperationException(
+						"Provider KYC flow actions must be completed out-of-band before retrying.");
+				default:
+					throw new InvalidOperationException($"Unsupported onboarding action type: {type ?? "(missing)"}");
 			}
 		}
 	}
 
-	private static Operation BuildAddCertificateOperation(WasmRuntime runtime, JsonElement action)
+	private static async Task AddCertificate(
+		WasmRuntime runtime,
+		UserClient userClient,
+		KeetaNetwork network,
+		JsonElement action,
+		CancellationToken cancellationToken)
 	{
 		string certificatePem = action.GetProperty("certificate").GetString()
 			?? throw new InvalidOperationException("add-certificate action is missing certificate");
 
-		List<string> intermediateDerHex = new();
-		if (action.TryGetProperty("intermediates", out JsonElement intermediates)
-			&& intermediates.ValueKind == JsonValueKind.Array)
+		List<CryptoCertificate> intermediates = new();
+		try
 		{
-			foreach (JsonElement intermediate in intermediates.EnumerateArray())
+			if (action.TryGetProperty("intermediates", out JsonElement bundled)
+				&& bundled.ValueKind == JsonValueKind.Array)
 			{
-				string intermediatePem = intermediate.GetString()
-					?? throw new InvalidOperationException("add-certificate intermediate is not a PEM string");
-				using CryptoCertificate intermediateCertificate = runtime.Certificates.Parse(intermediatePem);
-				intermediateDerHex.Add(OperationFactory.ToDerHex(intermediateCertificate));
+				foreach (JsonElement intermediate in bundled.EnumerateArray())
+				{
+					string intermediatePem = intermediate.GetString()
+						?? throw new InvalidOperationException("add-certificate intermediate is not a PEM string");
+					intermediates.Add(runtime.Certificates.Parse(intermediatePem));
+				}
+			}
+
+			using CryptoCertificate certificate = runtime.Certificates.Parse(certificatePem);
+			using Account? blockAccount = ReadAccount(runtime, action, "account");
+			using UserClient? scoped = ScopeToAccount(runtime, userClient, network, blockAccount);
+			UserClient writer = scoped ?? userClient;
+
+			await writer.ModifyCertificate(AdjustMethod.Add, certificate, intermediates, cancellationToken: cancellationToken)
+				.ConfigureAwait(false);
+		}
+		finally
+		{
+			foreach (CryptoCertificate intermediate in intermediates)
+			{
+				intermediate.Dispose();
 			}
 		}
-
-		using CryptoCertificate certificate = runtime.Certificates.Parse(certificatePem);
-		return runtime.Operations().ManageCertificateAdd(OperationFactory.ToDerHex(certificate), intermediateDerHex);
 	}
 
-	private static Operation BuildGrantPermissionOperation(WasmRuntime runtime, JsonElement action)
+	private static async Task GrantPermission(
+		WasmRuntime runtime,
+		UserClient userClient,
+		KeetaNetwork network,
+		JsonElement action,
+		CancellationToken cancellationToken)
 	{
-		JsonElement permission = action.GetProperty("permissionToGrant");
-		string principalAddress = permission.GetProperty("principal").GetString()
+		JsonElement grant = action.GetProperty("permissionToGrant");
+		string principalAddress = grant.GetProperty("principal").GetString()
 			?? throw new InvalidOperationException("grant-permission action is missing principal");
 
-		JsonElement permissionsElement = permission.GetProperty("permissions");
-		if (permissionsElement.ValueKind != JsonValueKind.Array || permissionsElement.GetArrayLength() != 2)
+		JsonElement bitmaps = grant.GetProperty("permissions");
+		if (bitmaps.ValueKind != JsonValueKind.Array || bitmaps.GetArrayLength() != 2)
 		{
 			throw new InvalidOperationException("grant-permission action is missing permission bitmaps");
 		}
 
-		string baseBitmap = permissionsElement[0].GetString()
-			?? throw new InvalidOperationException("grant-permission base bitmap is missing");
-		string externalBitmap = permissionsElement[1].GetString()
-			?? throw new InvalidOperationException("grant-permission external bitmap is missing");
-
 		using Account principal = runtime.Accounts.FromPublicKeyString(principalAddress);
-		if (permission.TryGetProperty("target", out JsonElement targetElement)
-			&& targetElement.ValueKind == JsonValueKind.String)
-		{
-			using Account target = runtime.Accounts.FromPublicKeyString(targetElement.GetString()!);
-			return runtime.Operations().ModifyPermissions(principal, baseBitmap, externalBitmap, target: target);
-		}
+		using Permissions permissions = runtime.Blocks.PermissionsFromBitmaps(
+			ToHexBitmap(bitmaps[0], "base"),
+			ToHexBitmap(bitmaps[1], "external"));
+		using Account? target = ReadAccount(runtime, grant, "target");
+		using Account? entity = ReadAccount(runtime, grant, "entity");
+		using UserClient? scoped = ScopeToAccount(runtime, userClient, network, entity);
+		UserClient writer = scoped ?? userClient;
 
-		return runtime.Operations().ModifyPermissions(principal, baseBitmap, externalBitmap);
+		await writer.UpdatePermissions(
+			principal,
+			permissions,
+			target,
+			AdjustMethod.Add,
+			cancellationToken: cancellationToken).ConfigureAwait(false);
 	}
 
-	private static Account? ResolveBlockAccount(WasmRuntime runtime, JsonElement action)
+	/// <summary>
+	/// A client operating as <paramref name="account"/> with the caller's
+	/// signer, for actions that write to another account's chain (e.g. a
+	/// storage account the user administers). Null when no override applies.
+	/// </summary>
+	private static UserClient? ScopeToAccount(
+		WasmRuntime runtime,
+		UserClient userClient,
+		KeetaNetwork network,
+		Account? account)
 	{
-		if (action.TryGetProperty("account", out JsonElement accountElement)
-			&& accountElement.ValueKind == JsonValueKind.String)
+		if (account is null)
 		{
-			return runtime.Accounts.FromPublicKeyString(accountElement.GetString()!);
+			return null;
 		}
 
-		if (action.TryGetProperty("permissionToGrant", out JsonElement permission)
-			&& permission.TryGetProperty("entity", out JsonElement entityElement)
-			&& entityElement.ValueKind == JsonValueKind.String)
+		return runtime.CreateUserClient(network, userClient.Signer, account: account);
+	}
+
+	private static Account? ReadAccount(WasmRuntime runtime, JsonElement element, string name) =>
+		element.TryGetProperty(name, out JsonElement address) && address.ValueKind == JsonValueKind.String
+			? runtime.Accounts.FromPublicKeyString(address.GetString()!)
+			: null;
+
+	/// <summary>
+	/// The anchor serializes permission bitmaps as decimal bigint strings;
+	/// the core decoder expects hex.
+	/// </summary>
+	private static string ToHexBitmap(JsonElement bitmap, string label)
+	{
+		string? decimalDigits = bitmap.GetString();
+		if (decimalDigits is null
+			|| !BigInteger.TryParse(decimalDigits, NumberStyles.Integer, CultureInfo.InvariantCulture, out BigInteger value))
 		{
-			return runtime.Accounts.FromPublicKeyString(entityElement.GetString()!);
+			throw new InvalidOperationException($"grant-permission {label} bitmap is not a decimal bigint string");
 		}
 
-		return null;
+		return "0x" + value.ToString("x", CultureInfo.InvariantCulture);
 	}
 }

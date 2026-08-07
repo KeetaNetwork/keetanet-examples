@@ -4,6 +4,7 @@
  * Description: Example of using the Keeta Anchor Client to create a persistent forwarding address
  */
 import * as KeetaAnchor from '@keetanetwork/anchor';
+import { MetadataRoot } from '../helper.js';
 
 const Account = KeetaAnchor.KeetaNet.lib.Account;
 
@@ -27,8 +28,8 @@ async function main() {
 
 	// Create Asset Movement Client to handle cross-chain transfers
 	const assetMovementClient = new KeetaAnchor.AssetMovement.Client(userClient, {
-		// default anchor root resolver address, can be customized to connect to a specific anchor
-		root: userClient.networkAddress,
+		// Custom examples root with a working old-Bivo metadata URL
+		root: Account.fromPublicKeyString(MetadataRoot),
 		...logger
 	});
 

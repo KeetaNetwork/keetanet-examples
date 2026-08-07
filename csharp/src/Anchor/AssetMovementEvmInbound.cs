@@ -2,13 +2,12 @@ using System.Text.Json;
 using KeetaNet.Anchor;
 using KeetaNet.Anchor.Crypto;
 using KeetaNet.Examples.Common;
-using KeetaNet.Examples.Network;
 
 namespace KeetaNet.Examples.Anchor;
 
 public sealed class AssetMovementEvmInboundExample : IKeetaExample
 {
-	private const string Network = "test";
+	private const KeetaNetwork Network = KeetaNetwork.Test;
 
 	public string Id => "anchor/asset-movement-evm-inbound";
 
@@ -26,15 +25,13 @@ public sealed class AssetMovementEvmInboundExample : IKeetaExample
 		Console.WriteLine($"Seed: {seed}");
 		Console.WriteLine($"Keeta Account: {userAccount.PublicKeyString}\n");
 
-		UserClient userClient = UserClient.FromNetwork(Network, userAccount);
-
+		using UserClient userClient = runtime.CreateUserClient(Network, userAccount);
 		using AssetMovementClient assetMovementClient = runtime.CreateAssetMovementClient(
-			Constants.NodeApi,
-			userClient.NetworkAddress,
+			Network.RepresentativeApiUrl(),
+			Constants.MetadataRoot,
 			userAccount);
-		using NodeClient nodeClient = runtime.CreateNodeClient(Constants.NodeApi);
 
-		string keetaDestination = $"chain:keeta:{userClient.Network}";
+		string keetaDestination = $"chain:keeta:{Network.Id()}";
 
 		IReadOnlyList<AssetProvider> providers = await assetMovementClient.GetProvidersForTransfer(
 			new AssetProviderSearch(
@@ -55,8 +52,7 @@ public sealed class AssetMovementEvmInboundExample : IKeetaExample
 			throw new InvalidOperationException("Provider is undefined");
 		}
 
-		JsonElement persistentAddressResponse = await assetMovementClient.CreatePersistentForwardingAddress(
-			provider,
+		AssetForwardingAddress created = await provider.CreatePersistentForwardingAddress(
 			new AssetCreateAddressRequest(
 				SourceLocation: Constants.BaseSepoliaLocation,
 				Asset: Constants.KeetaUsdcAsset,
@@ -64,8 +60,9 @@ public sealed class AssetMovementEvmInboundExample : IKeetaExample
 				DestinationAddress: userAccount.PublicKeyString),
 			cancellationToken);
 
-		string persistentAddress = persistentAddressResponse.GetProperty("address").GetString()
-			?? throw new InvalidOperationException("Failed to create persistent forwarding address");
+		string persistentAddress = created.Address.ValueKind == JsonValueKind.String
+			? created.Address.GetString()!
+			: throw new InvalidOperationException("Failed to create persistent forwarding address");
 
 		Console.WriteLine($"""
 			
@@ -115,8 +112,7 @@ public sealed class AssetMovementEvmInboundExample : IKeetaExample
 				{
 					await Task.Delay(TimeSpan.FromSeconds(5), monitorToken);
 
-					AssetTransactionPage transactionResponse = await assetMovementClient.ListTransactions(
-						provider,
+					AssetTransactionPage transactionResponse = await provider.ListTransactions(
 						new AssetListTransactionsRequest(
 							PersistentAddresses:
 							[
@@ -156,7 +152,7 @@ public sealed class AssetMovementEvmInboundExample : IKeetaExample
 						 Updated: {GetString(tx, "updatedAt")}
 						""");
 
-					IReadOnlyList<TokenBalance> balances = await nodeClient.GetAccountBalances(userAccount, monitorToken);
+					IReadOnlyList<TokenBalance> balances = await userClient.GetAllBalances(monitorToken);
 					Console.WriteLine("Current Keeta Balances:");
 					Console.WriteLine(JsonSerializer.Serialize(
 						balances.Select(entry => new { token = entry.Token.PublicKeyString, balance = entry.Balance.ToString() }),

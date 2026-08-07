@@ -7,6 +7,12 @@ import * as readline from 'readline';
 const debugPrintableObject: (input: unknown) => JSONSerializable = KeetaNet.lib.Utils.Helper.debugPrintableObject.bind(KeetaNet.lib.Utils.Helper);
 
 /**
+ * Custom examples root whose assetMovement catalog points old Bivo at the live
+ * `/serviceMetadata` URL. Use keeta_aj5pgcaced3jjixdn7unsybr4bx2v2p22zyhwubggp3i7474dze3ehhc5b4u4 for default test network
+ */
+export const MetadataRoot = 'keeta_aabswoueqd5tdxcybsmzdtqqgoo7zgl6mwwdqlj7h76uj27ut5b3kgogfgjh2yq';
+
+/**
  * Parse the account metadata
  * @param network network alias to use to get account metadata
  * @param token optional account to get metadata for, if not provided it will use the base token for the network

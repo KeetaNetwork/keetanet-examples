@@ -4,13 +4,12 @@ using System.Text.Json;
 using KeetaNet.Anchor;
 using KeetaNet.Anchor.Crypto;
 using KeetaNet.Examples.Common;
-using UserClient = KeetaNet.Examples.Network.UserClient;
 
 namespace KeetaNet.Examples.Anchor;
 
 public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 {
-	private const string Network = "test";
+	private const KeetaNetwork Network = KeetaNetwork.Test;
 	private const int UsdcDecimals = 6;
 
 	public string Id => "anchor/asset-movement-evm-outbound";
@@ -24,7 +23,7 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 			Keeta Asset Movement Example: Keeta => Base Sepolia USDC
 			=========================================================
 			IMPORTANT: Before running this example:
-			1. Run asset-movement-evm-inbound.ts to receive USDC tokens on Keeta Test Network
+			1. Run asset-movement-evm-inbound to receive USDC tokens on Keeta Test Network
 			2. Ensure you have sufficient USDC balance on Keeta to send
 			""");
 
@@ -41,27 +40,27 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 			throw new InvalidOperationException("Invalid Base Sepolia address. Must be a valid Ethereum address (0x...)");
 		}
 
-		UserClient userClient = UserClient.FromNetwork(Network, userAccount);
-		using NodeClient nodeClient = runtime.CreateNodeClient(Constants.NodeApi);
+		using UserClient userClient = runtime.CreateUserClient(Network, userAccount);
 
-		using Account baseToken = runtime.Accounts.FromPublicKeyString(userClient.BaseToken);
-		BigInteger baseTokenBalance = await nodeClient.GetAccountBalance(userAccount, baseToken, cancellationToken);
+		Account baseToken = userClient.Client.BaseToken
+			?? throw new InvalidOperationException("Client has no bound network base token");
+		BigInteger baseTokenBalance = await userClient.GetBalance(baseToken, cancellationToken);
 		if (baseTokenBalance == BigInteger.Zero)
 		{
-			if (!await Helper.GetFaucetTokens(runtime, userAccount, Network, cancellationToken))
+			if (!await Helper.GetFaucetTokens(userClient, Network, cancellationToken))
 			{
 				throw new InvalidOperationException("Failed to get Faucet Tokens");
 			}
 		}
 
 		using Account usdcToken = runtime.Accounts.FromPublicKeyString(Constants.KeetaUsdcAsset);
-		BigInteger currentBalance = await nodeClient.GetAccountBalance(userAccount, usdcToken, cancellationToken);
+		BigInteger currentBalance = await userClient.GetBalance(usdcToken, cancellationToken);
 		Console.WriteLine($"\nCurrent USDC Balance: {currentBalance} ({Helper.FormatDecimals(currentBalance, UsdcDecimals)} USDC)");
 
 		if (currentBalance == BigInteger.Zero)
 		{
 			throw new InvalidOperationException(
-				"You have no USDC balance on Keeta Test Network. Please run asset-movement-evm-inbound.ts first to get USDC tokens.");
+				"You have no USDC balance on Keeta Test Network. Please run asset-movement-evm-inbound first to get USDC tokens.");
 		}
 
 		string amountInput = Helper.ReadLine(
@@ -80,11 +79,11 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 		}
 
 		using AssetMovementClient assetMovementClient = runtime.CreateAssetMovementClient(
-			Constants.NodeApi,
-			userClient.NetworkAddress,
+			Network.RepresentativeApiUrl(),
+			Constants.MetadataRoot,
 			userAccount);
 
-		string keetaSource = $"chain:keeta:{userClient.Network}";
+		string keetaSource = $"chain:keeta:{Network.Id()}";
 
 		IReadOnlyList<AssetProvider> providers = await assetMovementClient.GetProvidersForTransfer(
 			new AssetProviderSearch(
@@ -105,8 +104,7 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 			throw new InvalidOperationException("Provider is undefined");
 		}
 
-		AssetTransfer transfer = await assetMovementClient.InitiateTransfer(
-			provider,
+		AssetTransfer transfer = await provider.InitiateTransfer(
 			new AssetTransferRequest(
 				Constants.KeetaUsdcAsset,
 				new AssetTransferSource(keetaSource),
@@ -124,7 +122,7 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 		}
 
 		string anchorAccount = instruction.GetProperty("sendToAddress").GetString()
-			?? throw new InvalidOperationException("Expected external field data in instruction");
+			?? throw new InvalidOperationException("Expected sendToAddress in instruction");
 
 		if (!instruction.TryGetProperty("external", out JsonElement externalElement))
 		{
@@ -136,7 +134,7 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 			: externalElement.GetRawText();
 
 		using Account sendTo = runtime.Accounts.FromPublicKeyString(anchorAccount);
-		await userClient.Send(runtime, sendTo, amountToSend, usdcToken, external, cancellationToken);
+		await userClient.Send(sendTo, amountToSend, usdcToken, external, cancellationToken: cancellationToken);
 
 		Console.WriteLine("\nMonitoring transfer status... (This will check every 5 seconds. Press Ctrl+C to stop)");
 
@@ -179,7 +177,7 @@ public sealed class AssetMovementEvmOutboundExample : IKeetaExample
 						========================================
 						""");
 
-					BigInteger finalBalance = await nodeClient.GetAccountBalance(userAccount, usdcToken, monitorToken);
+					BigInteger finalBalance = await userClient.GetBalance(usdcToken, monitorToken);
 					Console.WriteLine($"Final USDC Balance on Keeta: {Helper.FormatDecimals(finalBalance, UsdcDecimals)} USDC");
 					return 0;
 				}

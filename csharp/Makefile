@@ -6,13 +6,18 @@ PROJECT := src/KeetaNet.Examples.csproj
 ANCHOR_CSHARP := ../../../anchor-csharp
 
 EXAMPLES := \
+	client/accounts-create \
+	client/token-management \
+	client/send-and-listen \
+	anchor/encrypted-container \
 	anchor/kyc-client \
 	anchor/kyc-client-sharekyc \
 	anchor/asset-movement-evm-inbound \
 	anchor/asset-movement-evm-outbound \
 	anchor/asset-movement-fiat-deposit-from-crypto \
 	anchor/asset-movement-fiat-deposit-from-bank \
-	anchor/asset-movement-fiat-withdraw-to-bank
+	anchor/asset-movement-fiat-withdraw-to-bank \
+	anchor/asset-movement-persistent-address
 
 default: help
 

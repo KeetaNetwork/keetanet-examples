@@ -4,7 +4,6 @@ using System.Text.Json;
 using KeetaNet.Anchor;
 using KeetaNet.Anchor.Crypto;
 using KeetaNet.Examples.Common;
-using UserClient = KeetaNet.Examples.Network.UserClient;
 
 namespace KeetaNet.Examples.Anchor;
 
@@ -14,7 +13,7 @@ namespace KeetaNet.Examples.Anchor;
 /// </summary>
 public sealed class AssetMovementFiatWithdrawToBankExample : IKeetaExample
 {
-	private const string Network = "test";
+	private const KeetaNetwork Network = KeetaNetwork.Test;
 
 	private static readonly HashSet<string> UsStateCodes = new(StringComparer.OrdinalIgnoreCase)
 	{
@@ -48,27 +47,27 @@ public sealed class AssetMovementFiatWithdrawToBankExample : IKeetaExample
 		Console.WriteLine($"USD Token: {Constants.KeetaUsdAsset}");
 		Console.WriteLine();
 
-		UserClient userClient = UserClient.FromNetwork(Network, userAccount);
-		using NodeClient nodeClient = runtime.CreateNodeClient(Constants.NodeApi);
+		using UserClient userClient = runtime.CreateUserClient(Network, userAccount);
 		using Account usdToken = runtime.Accounts.FromPublicKeyString(Constants.KeetaUsdAsset);
 
-		int? usdDecimals = await Helper.GetTokenDecimals(nodeClient, usdToken, cancellationToken);
+		int? usdDecimals = await Helper.GetTokenDecimals(userClient.Client, usdToken, cancellationToken);
 		if (usdDecimals is null)
 		{
 			throw new InvalidOperationException("Failed to get USD token decimals");
 		}
 
-		using Account baseToken = runtime.Accounts.FromPublicKeyString(userClient.BaseToken);
-		BigInteger baseTokenBalance = await nodeClient.GetAccountBalance(userAccount, baseToken, cancellationToken);
+		Account baseToken = userClient.Client.BaseToken
+			?? throw new InvalidOperationException("Client has no bound network base token");
+		BigInteger baseTokenBalance = await userClient.GetBalance(baseToken, cancellationToken);
 		if (baseTokenBalance == BigInteger.Zero)
 		{
-			if (!await Helper.GetFaucetTokens(runtime, userAccount, Network, cancellationToken))
+			if (!await Helper.GetFaucetTokens(userClient, Network, cancellationToken))
 			{
 				throw new InvalidOperationException("Failed to get faucet tokens for transaction fees");
 			}
 		}
 
-		BigInteger currentBalance = await nodeClient.GetAccountBalance(userAccount, usdToken, cancellationToken);
+		BigInteger currentBalance = await userClient.GetBalance(usdToken, cancellationToken);
 		Console.WriteLine($"Current USD Balance: {Helper.FormatDecimals(currentBalance, usdDecimals.Value)} USD");
 
 		if (currentBalance == BigInteger.Zero)
@@ -142,11 +141,11 @@ public sealed class AssetMovementFiatWithdrawToBankExample : IKeetaExample
 		};
 
 		using AssetMovementClient assetMovementClient = runtime.CreateAssetMovementClient(
-			Constants.NodeApi,
-			userClient.NetworkAddress,
+			Network.RepresentativeApiUrl(),
+			Constants.MetadataRoot,
 			userAccount);
 
-		string keetaSource = $"chain:keeta:{userClient.Network}";
+		string keetaSource = $"chain:keeta:{Network.Id()}";
 		AssetOrPair assetPair = AssetOrPair.Pair(Constants.KeetaUsdAsset, "USD");
 
 		IReadOnlyList<AssetProvider> providers = await assetMovementClient.GetProvidersForTransfer(
@@ -173,8 +172,7 @@ public sealed class AssetMovementFiatWithdrawToBankExample : IKeetaExample
 		AssetTransfer transfer;
 		try
 		{
-			transfer = await assetMovementClient.InitiateTransfer(
-				provider,
+			transfer = await provider.InitiateTransfer(
 				new AssetTransferRequest(
 					assetPair,
 					new AssetTransferSource(keetaSource),
@@ -232,7 +230,7 @@ public sealed class AssetMovementFiatWithdrawToBankExample : IKeetaExample
 		Console.WriteLine("Sending USD to anchor ... please wait ...");
 
 		using Account sendTo = runtime.Accounts.FromPublicKeyString(anchorAccount);
-		await userClient.Send(runtime, sendTo, amountToWithdraw, usdToken, external, cancellationToken);
+		await userClient.Send(sendTo, amountToWithdraw, usdToken, external, cancellationToken: cancellationToken);
 
 		Console.WriteLine("\nMonitoring transfer status ... (checks every 5 seconds; Ctrl+C to stop)");
 
@@ -281,7 +279,7 @@ public sealed class AssetMovementFiatWithdrawToBankExample : IKeetaExample
 						========================================
 						""");
 
-					BigInteger finalBalance = await nodeClient.GetAccountBalance(userAccount, usdToken, monitorToken);
+					BigInteger finalBalance = await userClient.GetBalance(usdToken, monitorToken);
 					Console.WriteLine($"Final USD Balance on Keeta: {Helper.FormatDecimals(finalBalance, usdDecimals.Value)} USD");
 					return 0;
 				}

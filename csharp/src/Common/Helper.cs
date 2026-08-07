@@ -35,21 +35,24 @@ public static class Helper
 		return false;
 	}
 
+	/// <summary>
+	/// Request test tokens from the faucet for the client's operating account
+	/// and wait until the ledger credits them.
+	/// </summary>
 	public static async Task<bool> GetFaucetTokens(
-		WasmRuntime runtime,
-		Account account,
-		string network,
+		UserClient client,
+		KeetaNetwork network,
 		CancellationToken cancellationToken = default)
 	{
-		if (!string.Equals(network, "test", StringComparison.OrdinalIgnoreCase))
+		if (network != KeetaNetwork.Test)
 		{
 			throw new InvalidOperationException("Faucet is only available on the test network");
 		}
 
-		using NodeClient nodeClient = runtime.CreateNodeClient(Constants.NodeApi);
-		using Account baseToken = runtime.Accounts.FromPublicKeyString(Constants.BaseTokenAddress);
-		BigInteger initial = await nodeClient.GetAccountBalance(account, baseToken, cancellationToken)
-			.ConfigureAwait(false);
+		Account baseToken = client.Client.BaseToken
+			?? throw new InvalidOperationException("Client has no bound network base token");
+		string address = client.Account.PublicKeyString;
+		BigInteger initial = await client.GetBalance(baseToken, cancellationToken).ConfigureAwait(false);
 		BigInteger expectedCredit = BigInteger.Pow(10, 9) * 5;
 
 		try
@@ -58,7 +61,7 @@ public static class Helper
 			{
 				Content = new FormUrlEncodedContent(new Dictionary<string, string>
 				{
-					["address"] = account.PublicKeyString,
+					["address"] = address,
 					["amount"] = "5",
 				}),
 			};
@@ -69,25 +72,23 @@ public static class Helper
 
 			if (response.IsSuccessStatusCode && body.Contains("Sent ", StringComparison.OrdinalIgnoreCase))
 			{
-				Console.WriteLine($"Requesting tokens from faucet for: {account.PublicKeyString}");
+				Console.WriteLine($"Requesting tokens from faucet for: {address}");
 			}
 			else
 			{
-				Console.Error.WriteLine(
-					$"Faucet request failed for: {account.PublicKeyString} (HTTP {(int)response.StatusCode})");
+				Console.Error.WriteLine($"Faucet request failed for: {address} (HTTP {(int)response.StatusCode})");
 			}
 		}
 		catch (Exception error)
 		{
-			Console.Error.WriteLine($"Faucet request failed for: {account.PublicKeyString} {error.Message}");
+			Console.Error.WriteLine($"Faucet request failed for: {address} {error.Message}");
 		}
 
 		return await WaitForResult(async () =>
 		{
 			try
 			{
-				BigInteger current = await nodeClient.GetAccountBalance(account, baseToken, cancellationToken)
-					.ConfigureAwait(false);
+				BigInteger current = await client.GetBalance(baseToken, cancellationToken).ConfigureAwait(false);
 				return current >= initial + expectedCredit;
 			}
 			catch (KeetaException)
@@ -107,11 +108,11 @@ public static class Helper
 
 	/// <summary>Port of <c>getTokenDecimals</c> from <c>src/helper.ts</c>.</summary>
 	public static async Task<int?> GetTokenDecimals(
-		NodeClient nodeClient,
+		KeetaClient client,
 		Account token,
 		CancellationToken cancellationToken = default)
 	{
-		AccountState state = await nodeClient.GetAccountState(token, cancellationToken).ConfigureAwait(false);
+		AccountState state = await client.GetAccountInfo(token, cancellationToken).ConfigureAwait(false);
 
 		if (state.Info?.Metadata is not { Length: > 0 } metadataBase64)
 		{
