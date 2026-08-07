@@ -7,7 +7,7 @@
 
 import * as KeetaAnchor from '@keetanetwork/anchor';
 import { Errors } from '@keetanetwork/anchor/services/asset-movement/common.js';
-import { debugPrintableObject as DPO, promptUser } from '../helper.js';
+import { debugPrintableObject as DPO, MetadataRoot, promptUser } from '../helper.js';
 import * as util from 'util';
 
 const Account = KeetaAnchor.KeetaNet.lib.Account;
@@ -35,7 +35,7 @@ async function main() {
 	await using userClient = KeetaAnchor.KeetaNet.UserClient.fromNetwork(network, account);
 
 	const assetMovementClient = new KeetaAnchor.AssetMovement.Client(userClient, {
-		root: userClient.networkAddress,
+		root: Account.fromPublicKeyString(MetadataRoot),
 		...logger
 	});
 

@@ -15,7 +15,7 @@
  */
 
 import * as KeetaAnchor from '@keetanetwork/anchor';
-import { debugPrintableObject as DPO, formatDecimals, getFaucetTokens, promptUser } from '../helper.js';
+import { debugPrintableObject as DPO, MetadataRoot, formatDecimals, getFaucetTokens, promptUser } from '../helper.js';
 import * as util from 'util';
 
 const Account = KeetaAnchor.KeetaNet.lib.Account;
@@ -100,8 +100,8 @@ IMPORTANT: Before running this example:
 
 	// Create Asset Movement Client to handle cross-chain transfers
 	const assetMovementClient = new KeetaAnchor.AssetMovement.Client(userClient, {
-		// default anchor root resolver address, can be customized to connect to a specific anchor
-		root: userClient.networkAddress,
+		// Custom examples root with a working old-Bivo metadata URL
+		root: Account.fromPublicKeyString(MetadataRoot),
 		...logger
 	});
 

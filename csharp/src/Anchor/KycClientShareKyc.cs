@@ -41,7 +41,7 @@ public sealed class KycClientShareKycExample : IKeetaExample
 			userAccount);
 
 		string keetaDestination = $"chain:keeta:{Network.Id()}";
-		AssetOrPair assetPair = AssetOrPair.Pair("USD", Constants.KeetaUsdcAsset);
+		AssetOrPair assetPair = AssetOrPair.Pair("USD", Constants.KeetaUsdAsset);
 
 		IReadOnlyList<AssetProvider> providers = await assetMovementClient.GetProvidersForTransfer(
 			new AssetProviderSearch(

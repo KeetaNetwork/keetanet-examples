@@ -5,8 +5,8 @@ public static class Constants
 {
 	public const string FaucetUrl = "https://faucet.test.keeta.com";
 
-	/// <summary>The on-chain service metadata root the anchor resolvers read.</summary>
-	public const string MetadataRoot = "keeta_aj5pgcaced3jjixdn7unsybr4bx2v2p22zyhwubggp3i7474dze3ehhc5b4u4";
+	/// <summary>The examples use a custom anchor resolver. For default test network use metadata root use: keeta_aj5pgcaced3jjixdn7unsybr4bx2v2p22zyhwubggp3i7474dze3ehhc5b4u4</summary>
+	public const string MetadataRoot = "keeta_aabswoueqd5tdxcybsmzdtqqgoo7zgl6mwwdqlj7h76uj27ut5b3kgogfgjh2yq";
 
 	public const string FootprintProviderId = "Footprint";
 

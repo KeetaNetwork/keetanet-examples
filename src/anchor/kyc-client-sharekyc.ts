@@ -8,7 +8,7 @@ import * as KeetaAnchor from "@keetanetwork/anchor";
 import type { CertificateAttributeNames } from "@keetanetwork/anchor/lib/certificates.js";
 import type { KeetaAssetMovementAnchorProvider } from "@keetanetwork/anchor/services/asset-movement/client.js";
 import { Errors } from "@keetanetwork/anchor/services/asset-movement/common.js";
-import { debugPrintableObject as DPO, promptUser } from "../helper.js";
+import { debugPrintableObject as DPO, MetadataRoot, promptUser } from "../helper.js";
 import * as util from "util";
 
 const Account = KeetaAnchor.KeetaNet.lib.Account;
@@ -17,7 +17,7 @@ const DEBUG = false;
 const logger = DEBUG ? { logger: console } : {};
 const network = "test";
 
-const KEETA_USDC_ASSET = Account.fromPublicKeyString('keeta_apna75yhhvnv4ei7ape55hndk4yepno7a7i2mhtiwahiygixjcnmvswxhnmnk');
+const KEETA_USD_ASSET = Account.fromPublicKeyString('keeta_any4zllibya6fum3lsoimxmnmeo57nklxlh4c6d6xosfacarfaa3knkiprkmm');
 const US_BANK_SOURCE = { type: 'bank-account', account: { type: 'us' }} as const;
 
 /** Keeta Test Network KYC Root CA — used to verify on-chain KYC certificate chains */
@@ -218,7 +218,7 @@ async function main() {
 	await using userClient = KeetaAnchor.KeetaNet.UserClient.fromNetwork(network, account);
 
 	const assetMovementClient = new KeetaAnchor.AssetMovement.Client(userClient, {
-		root: userClient.networkAddress,
+		root: Account.fromPublicKeyString(MetadataRoot),
 		...logger
 	});
 
@@ -227,7 +227,7 @@ async function main() {
 		chain: { type: 'keeta', networkId: userClient.network }
 	} as const;
 
-	const assetPair = { from: 'USD' as const, to: KEETA_USDC_ASSET };
+	const assetPair = { from: 'USD' as const, to: KEETA_USD_ASSET };
 
 	// Get the providers for the transfer to trigger KYC share
 	const providers = await assetMovementClient.getProvidersForTransfer({
