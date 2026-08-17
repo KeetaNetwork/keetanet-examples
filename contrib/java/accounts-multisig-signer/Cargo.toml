@@ -1,0 +1,25 @@
+[package]
+name = "keetanet-jni-multisig"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/main/rust/lib.rs"
+
+[dependencies]
+jni = "0.21"
+# TODO: Change to crates.io versions once published.
+# Paths are relative to this directory and assume the `node-rs` repository
+# is checked out as a sibling of `keetanet-examples`.
+keetanetwork-account = { path = "../../../../node-rs/keetanetwork-account" }
+keetanetwork-crypto = { path = "../../../../node-rs/keetanetwork-crypto" }
+keetanetwork-block = { path = "../../../../node-rs/keetanetwork-block" }
+keetanetwork-client = { path = "../../../../node-rs/keetanetwork-client" }
+hex = "0.4"
+num-bigint = "0.4"
+tokio = { version = "1", features = ["rt-multi-thread", "time"] }
+
+[profile.release]
+opt-level = 3
+lto = true
